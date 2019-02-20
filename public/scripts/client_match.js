@@ -52,7 +52,6 @@ initializeBoard();
 
 //Master function to initialize the board:
 async function initializeBoard(){
-
     joinRoom();
     await colorDecided();
     buildBoard();
@@ -238,6 +237,12 @@ function addPieces(){
                 else pieceName = 'king';
             }
             $(td).append(`<img class=\'${color}\' src=\'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
+            if(black){
+                serverBoard[i].piece = {
+                    name: pieceName,
+                    color: pieceColor
+                };
+            }
         }
     }
 }

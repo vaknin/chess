@@ -4,6 +4,7 @@ const app = express();
 const http = require('http').Server(app);
 const server = require('socket.io')(http);
 const uuid = require('uuid/v4');
+const fs = require('fs');
 //#endregion
 
 //#region Classes
@@ -38,8 +39,10 @@ class Piece{
 
 //#region Global server variables
 
+let initialBoard;
 let queue = [];
 let matches = [];
+main();
 
 //#endregion
 
@@ -83,6 +86,32 @@ server.on('connection', client => {
 
 //#endregion
 
+//#region Helper methods
+
+//Initialize server(main method)
+function main(){
+    getInitialBoard();
+}
+
+//Gets the initial board information from a JSON file, it includes all the square notations and the location of all pieces:
+function getInitialBoard(){
+    fs.readFile(__dirname+'/board.json', (err, data) => {
+        if (err) throw err;
+        initialBoard = JSON.parse(data.toString('utf8'));
+    });
+}
+
+//Returns a match from the 'matches' array, by giving it the match's ID
+function getMatch(matchID){
+    for (let i = 0; i < matches.length; i++){
+        if (matches[i].id == matchID){
+            return matches[i];
+        }
+    }
+}
+
+//#endregion
+
 //#region Http & Handle new games
 
 function searchForOpponent(client){
@@ -115,38 +144,6 @@ function addPage(matchID){
     app.get(`/${matchID}`, (req, res) => {
         res.sendFile(__dirname + '/public/match.html');
     });
-}
-
-//Build the chess board
-function buildBoard(){
-    let board = [];
-    for(let r = 0; r < 8; r++){
-        //board.push(sq)
-        table.append(`<tr id=\'r${r}\'></tr>`);
-        for(let c = 0; c < 8; c++){
-            $(`#r${r}`).append(`<td id=\'td${r}_${c}\'> </td>`);
-            addSquareToArray(r, c, $(`#td${r}_${c}`));
-            if (r % 2 == 0){
-                if (c % 2 == 0){
-                    color = 'rgb(253,234,182)';
-                }
-                else{
-                    color = 'rgb(198, 161, 118)';
-                }
-            }
-
-            else{
-                if (c % 2 == 0){
-                    color = 'rgb(198, 161, 118)';
-                }
-                else{
-                    color = 'rgb(253,234,182)';
-                }
-            }
-            //Change the square's color based on modulus
-            $(`#td${r}_${c}`).css('background', color);
-        }
-    }
 }
 
 app.use(express.static(__dirname + '/public'));
