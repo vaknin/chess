@@ -1,0 +1,87 @@
+body{
+    background: #bbb;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+*, html {
+    margin:0;
+    padding:0;  
+}
+
+/* Game */
+.game{
+    position: absolute;
+    top: 5%;
+    left: 35%;
+}
+
+#board{
+    position: relative;
+    width: 40vw;
+    height: 40vw;
+}
+
+#board td{
+    z-index: 0;
+    height: 4rem;
+    width: 4rem;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+#board img{
+    position: relative;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.moveable{
+    border: 3px solid black;
+    border-radius: 3px;
+}
+
+.clickable{
+    cursor: pointer;
+}
+
+.selected{
+    border: 3px solid rgba(63, 63, 63, 0.534);
+    border-radius: 5px;
+}
+
+.rotated{ 
+    transform:rotate(180deg);
+    -webkit-transform:rotate(180deg);
+    -moz-transform:rotate(180deg);
+    -o-transform:rotate(180deg);
+}
+
+/* Chat */
+.chat{
+    position: fixed;
+    top: 27.5%;
+    left: 3%;
+    width: 17.5%;
+    height: 45vh;
+    background: white;
+    border: 1px solid black;
+    overflow: auto;
+}
+
+#input{
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 7.5%;
+    font-size: 1rem;
+    background-color: rgb(243, 255, 254);
+    box-sizing: border-box;
+}
+
+.chat li{
+    list-style-type: none;
+    padding-left: 0.25rem;
+    font-size: 1rem;
+    border-bottom: 1px solid rgb(138, 138, 138);
+}
