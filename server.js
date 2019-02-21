@@ -11,11 +11,11 @@ const fs = require('fs');
 
 //The 'Match' class contains information about a specific match: it's ID, the players, and the board object
 class Match{
-    constructor(id, white, black){
+    constructor(id, player1, player2){
         this.id = id;
-        this.white = white;
-        this.black = black;
-        //this.board = board;
+        this.player1 = player1;
+        this.player2 = player2;
+        this.board = getInitialBoard();
     }
 }   
 
@@ -39,9 +39,9 @@ class Piece{
 
 //#region Global server variables
 
-let initialBoard;
-let queue = [];
-let matches = [];
+const initialBoard = getInitialBoard();
+const queue = [];
+const matches = [];
 main();
 
 //#endregion
@@ -50,8 +50,21 @@ main();
 
 server.on('connection', client => {
 
+    //#region Lobby
+
     //The client is searching for an opponent 
     client.on('searching', () => searchForOpponent(client));
+
+    //If the client disconnects while waiting in queue, remove him from the queue
+    client.on('disconnect', () => {
+        if (queue.indexOf(client) != -1){
+            queue.splice(queue.indexOf(client), 1);
+        }
+    });
+
+    //#endregion
+
+    //#region Game Creation
 
     //The client is inside the match
     client.on('join', matchID => {
@@ -68,6 +81,29 @@ server.on('connection', client => {
         }
     });
 
+    //#endregion
+
+    //#region In-game
+
+    //Select a piece
+    client.on('select', notation => {
+
+        let game = getMatch(client.matchID);
+
+        //Unselect the piece - nothing for the server to do
+        if (game.selected){
+            game.selected = false;
+            return;
+        }
+
+        //Select a piece - send legal moves to the client
+        else{
+            game.selected = true;
+            server.to(client.id).emit('moves', calculateMoves(notation, game.board));
+        }
+    });
+
+
     //Switch turns
     client.on('endturn', move => {
 
@@ -75,14 +111,40 @@ server.on('connection', client => {
         client.to(client.matchID).broadcast.emit('endturn', move);
     });
 
-    //If the client disconnects while waiting in queue, remove him from the queue
-    client.on('disconnect', () => {
-        if (queue.indexOf(client) != -1){
-            queue.splice(queue.indexOf(client), 1);
-        }
-    });
-
+    //#endregion
 });
+
+//#endregion
+
+//#region Game Logic
+
+//Returns the square's index by giving it the square's notation
+function getSquareIndex(notation){
+
+    //For memory optimization, check only max 8 squares instead of max 64 squares
+    //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
+    let file = notation.substring(0, 1);
+    let rank = notation.substring(1, 2);
+    
+    let i = (8 - rank) * 8;
+    let stop = i + 8;
+
+    for (;i < stop; i++){
+
+        //The square has the same rank and file, return it's array index
+        if (initialBoard[i].notation.file == file){
+            return i;
+        }
+    }
+}
+
+//Calculates the currently legal moves for a given piece in the given board
+function calculateMoves(notation, board){
+    
+    let i = getSquareIndex(notation);
+    let piece = board[i].piece.name;
+    let color = board[i].piece.color;
+}
 
 //#endregion
 
@@ -95,10 +157,7 @@ function main(){
 
 //Gets the initial board information from a JSON file, it includes all the square notations and the location of all pieces:
 function getInitialBoard(){
-    fs.readFile(__dirname+'/board.json', (err, data) => {
-        if (err) throw err;
-        initialBoard = JSON.parse(data.toString('utf8'));
-    });
+    return JSON.parse(fs.readFileSync(__dirname+'/board.json', 'utf8'));
 }
 
 //Returns a match from the 'matches' array, by giving it the match's ID
@@ -128,7 +187,7 @@ function searchForOpponent(client){
         }
 
         //Create a new match
-        matches.push(new Match(matchID, queue[0], queue[1]));
+        matches.push(new Match(matchID, queue[0].id, queue[1].id));
 
         //Remove them from the queue
         queue.splice(0, 2);
@@ -136,7 +195,6 @@ function searchForOpponent(client){
         //Send the clients to the game
         addPage(matchID);
         server.to(matchID).emit('roomCreated', matches[matches.length - 1].id);
-        
     }
 }
 

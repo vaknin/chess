@@ -39,11 +39,15 @@ class Notation{
 
 //#region Variables
 
+//Consts
 const client = io();
 const board = [];
 const pieces = [];
 
-let black;
+//Lets
+let black, turn, selectedPiece;
+
+//Main method
 initializeBoard();
 
 //#endregion
@@ -55,17 +59,16 @@ async function initializeBoard(){
     joinRoom();
     await colorDecided();
     buildBoard();
-    //addOnClickEvent();
     addPieces();
+    onSquare();
     if (black)
         flipBoard();
-    //sendBoard();
 }
 
 //Connects the client to the server via socket.io
 function joinRoom(){
 
-    document.title = `${document.location.href.substring(document.location.href.length - 6, document.location.href.length).toUpperCase()}`;
+    document.title = `${document.location.href.substring(document.location.href.length - 6, document.location.href.length)}`;
     let matchID = document.title.substring(document.title.indexOf('#') + 1, document.title.length);
 
     //Join the socket.io room
@@ -77,26 +80,34 @@ function buildBoard(){
     
     //Helper method to determine square's background color
     function assignColor(r, f, td){
+
+        let color, colorClass;
+
         //Assign square color
         if (r % 2 == 0){
             if (f % 2 == 0){
                 color = 'rgb(253,234,182)';
+                colorClass = 'lightSquare';
             }
             else{
                 color = 'rgb(198, 161, 118)';
+                colorClass = 'darkSquare';
             }
         }
 
         else{
             if (f % 2 == 0){
                 color = 'rgb(198, 161, 118)';
+                colorClass = 'darkSquare';
             }
             else{
                 color = 'rgb(253,234,182)';
+                colorClass = 'lightSquare';
             }
         }
         //Change the square's color based on modulus
         $(td).css('background', color);
+        $(td).toggleClass(colorClass, true);
     }
 
     //Helper function to return the chess notation of a table square
@@ -167,10 +178,10 @@ function buildBoard(){
         
         //Add 8 squares to each row
         for (let f = 0; f < 8; f++){
-            $(row).append(`<td></td>`);
+            let notation = getNotation(r, f);
+            $(row).append(`<td id= \'${notation.name}\' ></td>`);
             let td = row.children[f];
             assignColor(r, f, td);
-            let notation = getNotation(r, f);
             board.push(new Square(notation, td));
         }
     }
@@ -236,13 +247,7 @@ function addPieces(){
                 //Kings
                 else pieceName = 'king';
             }
-            $(td).append(`<img class=\'${color}\' src=\'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
-            if(black){
-                serverBoard[i].piece = {
-                    name: pieceName,
-                    color: pieceColor
-                };
-            }
+            $(td).append(`<img class= \'${pieceColor}\' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
         }
     }
 }
@@ -251,11 +256,6 @@ function addPieces(){
 function flipBoard(){
     $('#board').toggleClass('rotated');
     $('img').toggleClass('rotated');
-}
-
-//Once the board is fully initialized, send it to the server
-function sendBoard(){
-
 }
 
 //#endregion
@@ -286,6 +286,7 @@ client.on('assignSides', blackID => {
     //Client is not black and it's his turn to play:
     if (client.id != blackID){
         black = false;
+        turn = true;
     }
 
     //Client is black:
@@ -293,5 +294,116 @@ client.on('assignSides', blackID => {
         black = true;
     }
 });
+
+//#endregion
+
+//#region Square onClick & Hover
+
+//After creating the board, call this function to add all the onClick listeners to them
+function onSquare(){
+
+    //Click on a square
+    $('td').on('click', (e) => {
+
+        //If it's not your turn, return
+        if (!turn){
+            return;
+        }
+
+    });
+
+    //Click on a piece
+    $('img').on('click', e => {
+
+        //If it's not your turn - return
+        if (!turn){
+            return;
+        }
+
+        let squareNotation = e.target.parentNode.id;
+        let pieceColor = $(e.target).hasClass('black') ? 'black' : 'white';
+        let td = $(e.target.parentNode);
+
+        //Client's piece - select the piece
+        if (pieceColor == 'black' && black || pieceColor == 'white' && !black){
+            selectPiece(squareNotation, true);
+        }
+
+        //Opponent's piece
+        else{
+
+            //Capture a piece
+            if (selectedPiece /* && pieceCapturable */){
+
+            }
+        }
+    });
+}
+
+//Selects a piece - toggle image background and emit to server asking for legal moves
+function selectPiece(notation, select){
+
+    //#region Visual effects
+
+    if (select && selectedPiece == notation){
+        selectPiece(selectedPiece, false);
+        return;
+    }
+
+    //If there's already a selected piece - unselect it
+    else if (select && selectedPiece != undefined){
+        selectPiece(selectedPiece, false);
+    }
+
+    let td = $(`#${notation}`);
+    let lightSquared = td.hasClass('lightSquare') ? true : false;
+
+    //Select a piece
+    if (select){
+
+        //It is light squared
+        if(lightSquared){
+            let darkerLight = 'rgb(216, 202, 162)';
+            td.css('background', darkerLight);
+        }
+
+        //It is dark squared
+        else{
+            let lighterDark = 'rgb(229, 185, 135)';
+            td.css('background', lighterDark);
+        }
+
+        selectedPiece = notation;
+    }
+
+    //Unselect a piece
+    else{
+
+        //It is light squared
+        if(lightSquared){
+            let lightColor = 'rgb(253,234,182)';
+            td.css('background', lightColor);
+        }
+
+        //It is dark squared
+        else{
+            let darkColor = 'rgb(198, 161, 118)';
+            td.css('background', darkColor);
+        }
+
+        selectedPiece = undefined;
+    }
+    //#endregion
+
+    //#region Emission
+
+    //Ask the server for legal moves
+
+    client.emit('select', notation);
+
+    //#endregion
+
+}
+
 
 //#endregion
