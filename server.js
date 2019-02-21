@@ -39,7 +39,6 @@ class Piece{
 
 //#region Global server variables
 
-const initialBoard = getInitialBoard();
 const queue = [];
 const matches = [];
 main();
@@ -76,7 +75,7 @@ server.on('connection', client => {
         //Choose sides
         if (server.sockets.adapter.rooms[`${matchID}`].length == 2){
 
-            //One of the clients is selected to play black
+            //One of the clients is selected to play black, the other one is white
             server.to(matchID).emit('assignSides', client.id);
         }
     });
@@ -99,16 +98,34 @@ server.on('connection', client => {
         //Select a piece - send legal moves to the client
         else{
             game.selected = true;
+            game.selectedPosition = notation;
             server.to(client.id).emit('moves', calculateMoves(notation, game.board));
         }
     });
 
+    //Move and capture a piece
+    client.on('move', newPosition => {
 
-    //Switch turns
-    client.on('endturn', move => {
+        //Variables
+        let board = getMatch(client.matchID).board;
+        let formerPosition = getMatch(client.matchID).selectedPosition;
+        let formerIndex = getSquareIndex(formerPosition, board);
+        let newIndex = getSquareIndex(newPosition, board);
 
-        //Emit to the other play it's his turn
-        client.to(client.matchID).broadcast.emit('endturn', move);
+        //Update piece's new position
+        board[newIndex].piece = board[formerIndex].piece;
+
+        //Remove the piece from it's former position
+        delete board[formerIndex].piece;
+
+        //The move object contains the position that was just played
+        let move = {
+            from: formerPosition,
+            to: newPosition
+        };
+
+        //Change turns
+        server.to(client.matchID).emit('turn', move);
     });
 
     //#endregion
@@ -119,7 +136,7 @@ server.on('connection', client => {
 //#region Game Logic
 
 //Returns the square's index by giving it the square's notation
-function getSquareIndex(notation){
+function getSquareIndex(notation, board){
 
     //For memory optimization, check only max 8 squares instead of max 64 squares
     //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
@@ -132,18 +149,62 @@ function getSquareIndex(notation){
     for (;i < stop; i++){
 
         //The square has the same rank and file, return it's array index
-        if (initialBoard[i].notation.file == file){
+        if (board[i].notation.file == file){
             return i;
         }
     }
 }
 
-//Calculates the currently legal moves for a given piece in the given board
+//Returns an array of possible moves for the selected piece
 function calculateMoves(notation, board){
-    
-    let i = getSquareIndex(notation);
-    let piece = board[i].piece.name;
+
+    const moves = [];
+    let i = getSquareIndex(notation, board);
     let color = board[i].piece.color;
+    let piece = board[i].piece.name;
+    let pieceAlreadyMoved = board[i].piece.moved;
+    let pieceFile = notation.substring(0, 1);
+    let pieceRank = parseInt(notation.substring(1, 2));
+
+    //Different pieces have different moves
+    switch(piece){
+
+        //Pawn movement
+        case 'pawn':
+
+            let pawnDirection = color == 'white' ? 1 : -1; //White pawns move up the ranks, Black pawns move down
+
+
+            //The pawn hasn't moved yet, allow double move
+            if (!pieceAlreadyMoved){
+
+                //Scan the next two squares the pawn is facing (i.e. E2 pawn is facing E3 and E4)
+                for (let i = 1; i <= 2; i++){
+                    let squareToCheck = `${pieceFile}${pieceRank + (i * pawnDirection)}`;
+
+                    //If the square is empty, add it to possible moves array
+                    if(!board[getSquareIndex(squareToCheck, board)].piece){
+                        moves.push(squareToCheck);
+                    }
+                }
+            }
+            
+            //The pawn has already moved
+            else{
+                //TODO: EN PASSANT
+
+                //Scan the square the pawn is facing (i.e. White E4 pawn is facing E5 square)
+                let squareToCheck = `${pieceFile}${pieceRank + pawnDirection}`;
+
+                //If the square is empty, add it to possible moves array
+                if(!board[getSquareIndex(squareToCheck, board)].piece){
+                    moves.push(squareToCheck);
+                }
+            }
+        break;
+    }
+
+    return moves;
 }
 
 //#endregion

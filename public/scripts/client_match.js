@@ -23,6 +23,7 @@ class Piece{
         this.color = color;
         this.type = type;
         this.position = position;
+        this.moved = false;
     }
 }
 
@@ -45,7 +46,7 @@ const board = [];
 const pieces = [];
 
 //Lets
-let black, turn, selectedPiece;
+let black, turn, selectedPiece, legalMoves;
 
 //Main method
 initializeBoard();
@@ -250,6 +251,11 @@ function addPieces(){
             $(td).append(`<img class= \'${pieceColor}\' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
         }
     }
+
+    //Add pointer cursor on piece hover for white
+    if (!black){
+        $('.white').toggleClass('clickable', true);
+    }
 }
 
 //Flip the board 180 degrees for black
@@ -283,16 +289,66 @@ async function colorDecided(){
 //Assign sides:
 client.on('assignSides', blackID => {
 
-    //Client is not black and it's his turn to play:
+    // Client is white
     if (client.id != blackID){
         black = false;
         turn = true;
+        document.title = 'Your turn!';
     }
 
-    //Client is black:
+    // Client is black
     else{
         black = true;
+        document.title = 'Opponent\'s turn..';
     }
+});
+
+//Receive an array of possible moves:
+client.on('moves', moves => {
+
+    //Add the class 'moveable' to the legal squares
+    for(let i = 0; i < moves.length; i++){
+        $(`#${moves[i]}`).toggleClass('moveable', true);
+    }
+
+    legalMoves = moves;
+});
+
+//Handle turn switching
+client.on('turn', move => {
+
+    //Set a variable to the client's color
+    let color = black ? 'black' : 'white';
+
+    //End turn
+    if (turn){
+
+        //Disable pointer cursor on piece hover
+        $('.moveable').toggleClass('moveable', false);
+        $('.clickable').toggleClass('clickable', false);
+
+        //Change document's title
+        document.title = 'Opponent\'s turn..';
+    }
+
+    //Start turn
+    else{
+
+        //Change document's title
+        document.title = 'Your turn!';
+
+        //Set pieces pointer cursor for his own pieces on hover
+        $(`.${color}`).toggleClass('clickable', true);
+
+        //Set variables for the piece's image and the square to move to
+        let img = $($(`#${move.from}`)[0].children[0]);
+        let destination = $($(`#${move.to}`)[0]);
+        
+        //Update the board from the previous move
+        img.appendTo(destination);
+    }
+
+    turn = !turn;
 });
 
 //#endregion
@@ -310,6 +366,19 @@ function onSquare(){
             return;
         }
 
+        //If the square can legally be moved to
+        if ($(e.target).hasClass('moveable')){
+
+            //Move the image from the former position to the current one
+            let img = $($(`#${selectedPiece}`)[0].children[0]);
+            img.appendTo(e.target);
+
+            //Toggle off selection effects
+            selectPiece($(`#${selectedPiece}`).id, false);
+
+            //Update the server
+            client.emit('move', e.target.id);
+        }       
     });
 
     //Click on a piece
@@ -345,29 +414,31 @@ function selectPiece(notation, select){
 
     //#region Visual effects
 
-    if (select && selectedPiece == notation){
-        selectPiece(selectedPiece, false);
-        return;
-    }
-
-    //If there's already a selected piece - unselect it
-    else if (select && selectedPiece != undefined){
-        selectPiece(selectedPiece, false);
-    }
-
+    //Variables for easier reference
     let td = $(`#${notation}`);
     let lightSquared = td.hasClass('lightSquare') ? true : false;
 
     //Select a piece
     if (select){
 
-        //It is light squared
+        //If trying to select a piece that is already selected - unselect it
+        if (selectedPiece == notation){
+            selectPiece(selectedPiece, false);
+            return;
+        }
+    
+        //If there's already a selected piece - unselect the already selected piece before selecting the new one
+        else if (selectedPiece != undefined){
+            selectPiece(selectedPiece, false);
+        }
+
+        //It is a light squared piece
         if(lightSquared){
             let darkerLight = 'rgb(216, 202, 162)';
             td.css('background', darkerLight);
         }
 
-        //It is dark squared
+        //It is a dark squared piece
         else{
             let lighterDark = 'rgb(229, 185, 135)';
             td.css('background', lighterDark);
@@ -391,8 +462,14 @@ function selectPiece(notation, select){
             td.css('background', darkColor);
         }
 
+        //Disable moveable squares
+        for(let i = 0; i < legalMoves.length; i++){
+            $(`#${legalMoves[i]}`).toggleClass('moveable', false);
+        }
+
         selectedPiece = undefined;
     }
+
     //#endregion
 
     //#region Emission
