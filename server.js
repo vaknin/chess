@@ -112,6 +112,9 @@ server.on('connection', client => {
         let formerIndex = getSquareIndex(formerPosition, board);
         let newIndex = getSquareIndex(newPosition, board);
 
+        //Change the piece's 'moved' property to true
+        board[formerIndex].piece.moved = true;
+
         //Update piece's new position
         board[newIndex].piece = board[formerIndex].piece;
 
@@ -165,6 +168,7 @@ function calculateMoves(notation, board){
     let pieceAlreadyMoved = board[i].piece.moved;
     let pieceFile = notation.substring(0, 1);
     let pieceRank = parseInt(notation.substring(1, 2));
+    let pieceFileNumber = fileConverter('number', pieceFile);
 
     //Different pieces have different moves
     switch(piece){
@@ -173,7 +177,6 @@ function calculateMoves(notation, board){
         case 'pawn':
 
             let pawnDirection = color == 'white' ? 1 : -1; //White pawns move up the ranks, Black pawns move down
-
 
             //The pawn hasn't moved yet, allow double move
             if (!pieceAlreadyMoved){
@@ -186,6 +189,8 @@ function calculateMoves(notation, board){
                     if(!board[getSquareIndex(squareToCheck, board)].piece){
                         moves.push(squareToCheck);
                     }
+
+                    else break;
                 }
             }
             
@@ -201,6 +206,33 @@ function calculateMoves(notation, board){
                     moves.push(squareToCheck);
                 }
             }
+
+            //Pawn capture system:
+            let diff = 1;
+
+            //Iterate over the two squares the pawn is defending, and check if they're taken by an enemy piece
+            for(let j = 0; j < 2; j++){
+
+                let file = fileConverter('file', pieceFileNumber + diff);
+                
+                let notation = file + (pieceRank + pawnDirection);
+                diff *= -1;
+
+                //If no such file exists, continue to the next iteration (i.e. A0)
+                if (file == undefined){
+                    continue;
+                }
+
+                //The index of the square we're checking
+                let i = getSquareIndex(notation, board);
+
+                //If the square is taken by an enemy piece
+                if (board[i].piece && board[i].piece.color != color){
+                    
+                    //Add it to the moves array
+                    moves.push(notation);                    
+                }
+            }
         break;
     }
 
@@ -210,6 +242,54 @@ function calculateMoves(notation, board){
 //#endregion
 
 //#region Helper methods
+
+//Converts files to numbers and numbers to files
+function fileConverter(mode, arg){
+
+    //Conver a number to file, i.e. 1 -> A, H -> 8
+    if (mode == 'file'){
+        switch(arg){
+            case 1:
+            return 'A';
+            case 2:
+            return 'B';
+            case 3:
+            return 'C';
+            case 4:
+            return 'D';
+            case 5:
+            return 'E';
+            case 6:
+            return 'F';
+            case 7:
+            return 'G';
+            case 8:
+            return 'H';
+        }
+    }
+
+    //Conver a file to a number, i.e. A -> 1, 8 -> H
+    else if (mode == 'number'){
+        switch(arg){
+            case 'A':
+                return 1;
+            case 'B':
+                return 2;
+            case 'C':
+                return 3;
+            case 'D':
+                return 4;
+            case 'E':
+                return 5;
+            case 'F':
+                return 6;
+            case 'G':
+                return 7;
+            case 'H':
+                return 8;
+        }
+    }
+}
 
 //Initialize server(main method)
 function main(){

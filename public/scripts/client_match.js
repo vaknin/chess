@@ -45,6 +45,9 @@ const client = io();
 const board = [];
 const pieces = [];
 
+const captureSound = new Audio('../sounds/Capture.mp3');
+const moveSound = new Audio('../sounds/Move.mp3');
+
 //Lets
 let black, turn, selectedPiece, legalMoves;
 
@@ -327,6 +330,9 @@ client.on('turn', move => {
         $('.moveable').toggleClass('moveable', false);
         $('.clickable').toggleClass('clickable', false);
 
+        //Toggle off selection effects
+        selectPiece(selectedPiece, false);
+
         //Change document's title
         document.title = 'Opponent\'s turn..';
     }
@@ -344,6 +350,23 @@ client.on('turn', move => {
         let img = $($(`#${move.from}`)[0].children[0]);
         let destination = $($(`#${move.to}`)[0]);
         
+        //Check if a piece was captured, if so, remove it's image and play sound
+        let squareToCheck = $(`#${move.to}`)[0];
+
+        //A piece was captured:
+        if (squareToCheck.children.length > 0){
+
+            //Remove it's image
+            squareToCheck.children[0].remove();
+
+            //Play capture sound
+            captureSound.play();
+        }
+
+        else{
+            moveSound.play();
+        }
+
         //Update the board from the previous move
         img.appendTo(destination);
     }
@@ -373,11 +396,11 @@ function onSquare(){
             let img = $($(`#${selectedPiece}`)[0].children[0]);
             img.appendTo(e.target);
 
-            //Toggle off selection effects
-            selectPiece($(`#${selectedPiece}`).id, false);
-
             //Update the server
             client.emit('move', e.target.id);
+
+            //Play move sound
+            moveSound.play();
         }       
     });
 
@@ -401,9 +424,27 @@ function onSquare(){
         //Opponent's piece
         else{
 
-            //Capture a piece
-            if (selectedPiece /* && pieceCapturable */){
+            //A bool that stores the information whether the square is clickable
+            let moveableSquare = $(e.target.parentNode).hasClass('moveable');
+            
+            //If the square is moveable and there's a piece currently selected - capture it
+            if (selectedPiece && moveableSquare){
 
+                //The square's notation
+                let notation = e.target.parentNode.id;
+
+                //Remove the image of the captured piece
+                e.target.remove();
+
+                //Move the image from the former square to the new one
+                let img = $($(`#${selectedPiece}`)[0].children[0]);
+                img.appendTo($(`#${notation}`));
+
+                //Update the server
+                client.emit('move', notation);
+
+                //Play capture sound
+                captureSound.play();
             }
         }
     });
