@@ -149,8 +149,27 @@ server.on('connection', client => {
             to: newPosition
         };
 
+        //#region Checks
+        
+        //Get an array of possible moves
+        let moves = calculateMoves(newPosition, board);
+
+        //Loop through all moves and check if the king is checked
+        for(let i = 0; i < moves.length; i++){
+
+            let index = getSquareIndex(moves[i]);
+            
+            if (board[index].piece && board[index].piece.name == 'king'){
+                board.check = moves[i];
+                break;
+            }
+        }
+        
+
+        //#endregion
+
         //Change turns
-        server.to(client.matchID).emit('turn', move);
+        server.to(client.matchID).emit('turn', move, board.check);
     });
 
     //#endregion

@@ -251,7 +251,7 @@ function addPieces(){
                 //Kings
                 else pieceName = 'king';
             }
-            $(td).append(`<img class= \'${pieceColor}\' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
+            $(td).append(`<img class= '${pieceColor}' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
         }
     }
 
@@ -318,9 +318,9 @@ client.on('moves', moves => {
 });
 
 //Handle turn switching
-client.on('turn', move => {
+client.on('turn', (move, checkedKing) => {
 
-    //Variables
+    //#region Variables
     let disableDefaultSound = false;
     let color = black ? 'black' : 'white';
     let img = $($(`#${move.from}`)[0].children[0]);
@@ -330,6 +330,10 @@ client.on('turn', move => {
     let destination = $($(`#${move.to}`)[0]);
     let squareToCheck = $(`#${move.to}`)[0];
     let moveToEmptySquare = squareToCheck.children.length == 0;
+
+    //#endregion
+
+    //#region Turn switch effects(document title, etc.)
 
     //End turn
     if (turn){
@@ -355,8 +359,11 @@ client.on('turn', move => {
         $(`.${color}`).toggleClass('clickable', true);
     }
 
-     //Special moves
-     switch(pieceName){
+    //#endregion
+
+    //#region Special moves(en passant, pawn promotion, castle, etc)
+
+    switch(pieceName){
 
         //Pawns
         case 'pawn':
@@ -390,8 +397,12 @@ client.on('turn', move => {
             }
         break;
     }
+
+    //#endregion
     
-    //Piece capture
+    //#region On capture / On move (images and sounds)
+
+    //On piece capture
     if (!moveToEmptySquare){
 
         //Remove it's image
@@ -403,15 +414,32 @@ client.on('turn', move => {
         }
     }
 
-    //Piece movement
+    //On piece movement
     else if (!disableDefaultSound){
 
         //Play piece movement sound
         moveSound.play();
     }
-    
+
     //Update the piece image location
     img.appendTo(destination);
+
+    //#endregion
+    
+    //#region Checks
+
+    //A check was made
+    if (checkedKing){
+
+        //Toggle the checked class on for the king's square
+        let king = $(`#${checkedKing}`);
+        
+        king.toggleClass('checked', true);
+    }
+
+    //#endregion
+
+    
     turn = !turn;
 });
 
