@@ -320,9 +320,6 @@ client.on('moves', moves => {
 //Handle turn switching
 client.on('turn', move => {
 
-    //Set a variable to the client's color
-    let color = black ? 'black' : 'white';
-
     //End turn
     if (turn){
 
@@ -340,31 +337,61 @@ client.on('turn', move => {
     //Start turn
     else{
 
+        //Variables
+        let disableDefaultSound = false;
+        let color = black ? 'black' : 'white';
+        let img = $($(`#${move.from}`)[0].children[0]);
+        let underscoreIndex = img[0].src.indexOf('_');
+        let periodIndex = img[0].src.lastIndexOf('.');
+        let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
+        let destination = $($(`#${move.to}`)[0]);
+        let squareToCheck = $(`#${move.to}`)[0];
+        let moveToEmptySquare = squareToCheck.children.length == 0;
+
         //Change document's title
         document.title = 'Your turn!';
 
         //Set pieces pointer cursor for his own pieces on hover
         $(`.${color}`).toggleClass('clickable', true);
 
-        //Set variables for the piece's image and the square to move to
-        let img = $($(`#${move.from}`)[0].children[0]);
-        let destination = $($(`#${move.to}`)[0]);
-        
-        //Check if a piece was captured, if so, remove it's image and play sound
-        let squareToCheck = $(`#${move.to}`)[0];
+        //Special moves
+        switch(pieceName){
 
-        //A piece was captured:
-        if (squareToCheck.children.length > 0){
+            //En Passant
+            case 'pawn':
+                let oldFile = move.from.substring(0, 1);
+                let newFile = move.to.substring(0, 1);
+
+                //Execute 'En Passant'
+                if (oldFile != newFile && moveToEmptySquare){
+                    
+                    let oldRank = move.from.substring(1, 2);
+                    $(`#${newFile + oldRank}`)[0].children[0].remove();
+
+                    //Play piece capture sound
+                    captureSound.play();
+                    disableDefaultSound = true;
+                }
+            break;
+        }
+        
+        //Piece capture
+        if (!moveToEmptySquare){
 
             //Remove it's image
             squareToCheck.children[0].remove();
 
             //Play capture sound
-            captureSound.play();
+            if (!disableDefaultSound){
+                captureSound.play();
+            }
         }
 
+        //Piece movement
         else{
-            moveSound.play();
+            if (!disableDefaultSound){
+                moveSound.play();
+            }
         }
 
         //Update the board from the previous move
@@ -384,6 +411,8 @@ function onSquare(){
     //Click on a square
     $('td').on('click', (e) => {
 
+        let disableDefaultSound = false;
+
         //If it's not your turn, return
         if (!turn){
             return;
@@ -392,6 +421,19 @@ function onSquare(){
         //If the square can legally be moved to
         if ($(e.target).hasClass('moveable')){
 
+            //En Passant
+            let oldFile = selectedPiece.substring(0, 1);
+            let newFile = e.target.id.substring(0, 1);
+
+            //Execute 'En Passant'
+            if (oldFile != newFile){
+                
+                let oldRank = selectedPiece.substring(1, 2);
+                $(`#${newFile + oldRank}`)[0].children[0].remove();
+                captureSound.play();
+                disableDefaultSound = true;
+            }
+
             //Move the image from the former position to the current one
             let img = $($(`#${selectedPiece}`)[0].children[0]);
             img.appendTo(e.target);
@@ -399,8 +441,10 @@ function onSquare(){
             //Update the server
             client.emit('move', e.target.id);
 
-            //Play move sound
-            moveSound.play();
+            //Play move sound unless specified otherwise
+            if (!disableDefaultSound){
+                moveSound.play();
+            }
         }       
     });
 
@@ -522,6 +566,4 @@ function selectPiece(notation, select){
     //#endregion
 
 }
-
-
 //#endregion

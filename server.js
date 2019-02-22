@@ -19,26 +19,11 @@ class Match{
     }
 }   
 
-class Position{
-    constructor(file, rank){
-        this.file = file;
-        this.rank = rank;
-        this.pos = file + rank;
-    }
-}
-
-class Piece{
-    constructor(color, type, position){
-        this.color = color;
-        this.type = type;
-        this.position = position;
-    }
-}
-
 //#endregion
 
 //#region Global server variables
 
+const defaultBoard = getInitialBoard();
 const queue = [];
 const matches = [];
 main();
@@ -109,8 +94,38 @@ server.on('connection', client => {
         //Variables
         let board = getMatch(client.matchID).board;
         let formerPosition = getMatch(client.matchID).selectedPosition;
-        let formerIndex = getSquareIndex(formerPosition, board);
-        let newIndex = getSquareIndex(newPosition, board);
+        let formerIndex = getSquareIndex(formerPosition);
+        let newIndex = getSquareIndex(newPosition);
+        let piece = board[formerIndex].piece;
+
+        //#region En Passant
+
+        //Check only situations with pawns
+        if (piece.name == 'pawn'){
+
+            let formerFile = formerPosition.substring(0, 1);
+            let newFile = newPosition.substring(0, 1);
+            let movedFiles = formerFile != newFile;
+
+            let formerRank = formerPosition.substring(1, 2);
+            let newRank = newPosition.substring(1, 2);
+            let movedTwice = Math.abs(formerRank - newRank) == 2;
+
+            //If the pawn just moved twice, mark that as a property
+            if (movedTwice){
+                board.doubleMove = newPosition;
+            }
+
+            //If the pawn moved between files, to an empty square - En passant was executed
+            else if(board[newIndex].piece == undefined && movedFiles){
+
+                //Remove the captured piece from the board on (newFile, oldRank)
+                let i = getSquareIndex(newFile + formerRank);
+                delete board[i].piece;
+            }
+        }
+
+        //#endregion
 
         //Change the piece's 'moved' property to true
         board[formerIndex].piece.moved = true;
@@ -139,7 +154,7 @@ server.on('connection', client => {
 //#region Game Logic
 
 //Returns the square's index by giving it the square's notation
-function getSquareIndex(notation, board){
+function getSquareIndex(notation){
 
     //For memory optimization, check only max 8 squares instead of max 64 squares
     //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
@@ -152,26 +167,30 @@ function getSquareIndex(notation, board){
     for (;i < stop; i++){
 
         //The square has the same rank and file, return it's array index
-        if (board[i].notation.file == file){
+        let exists = defaultBoard[i] != undefined;
+        
+        if (exists && defaultBoard[i].notation.file == file){
             return i;
         }
     }
+
+    return -1;
 }
 
 //Returns an array of possible moves for the selected piece
 function calculateMoves(notation, board){
 
     const moves = [];
-    let i = getSquareIndex(notation, board);
+    let i = getSquareIndex(notation);
     let color = board[i].piece.color;
-    let piece = board[i].piece.name;
+    let piece = board[i].piece;
     let pieceAlreadyMoved = board[i].piece.moved;
     let pieceFile = notation.substring(0, 1);
     let pieceRank = parseInt(notation.substring(1, 2));
     let pieceFileNumber = fileConverter('number', pieceFile);
 
     //Different pieces have different moves
-    switch(piece){
+    switch(piece.name){
 
         //Pawn movement
         case 'pawn':
@@ -186,7 +205,7 @@ function calculateMoves(notation, board){
                     let squareToCheck = `${pieceFile}${pieceRank + (i * pawnDirection)}`;
 
                     //If the square is empty, add it to possible moves array
-                    if(!board[getSquareIndex(squareToCheck, board)].piece){
+                    if(!board[getSquareIndex(squareToCheck)].piece){
                         moves.push(squareToCheck);
                     }
 
@@ -196,15 +215,50 @@ function calculateMoves(notation, board){
             
             //The pawn has already moved
             else{
-                //TODO: EN PASSANT
-
                 //Scan the square the pawn is facing (i.e. White E4 pawn is facing E5 square)
                 let squareToCheck = `${pieceFile}${pieceRank + pawnDirection}`;
+                let squareExists = getSquareIndex(squareToCheck) != -1;
 
                 //If the square is empty, add it to possible moves array
-                if(!board[getSquareIndex(squareToCheck, board)].piece){
+                if(squareExists && !board[getSquareIndex(squareToCheck)].piece){
                     moves.push(squareToCheck);
                 }
+
+                //En Passant;
+                //Check if a double move has occured in the last game
+                if (board.doubleMove != undefined){
+                    
+                    //Check if it is the proper rank
+                    let doubleMoveRank = parseInt(board.doubleMove.substring(1, 2));
+                    let sameRank = pieceRank == doubleMoveRank;
+                    
+                    //Proper rank
+                    if (sameRank){
+
+                        //Check if it is the proper file:
+                        //The file the pawn has double-moved to
+                        let doubleMoveFile = board.doubleMove.substring(0, 1);
+
+                        //Loop twice and check if en-passant is possible
+                        let n = 1;
+                        for(let i = 0; i < 2; i++){
+
+                            let properFile = fileConverter('file', pieceFileNumber + n);
+
+                            //The ranks and files are proper for en passant, add the move
+                            if (doubleMoveFile == properFile){
+                                moves.push(properFile + (pieceRank + pawnDirection));
+                                break;
+                            }
+
+                            else{
+                                n *= -1;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
             }
 
             //Pawn capture system:
@@ -224,10 +278,11 @@ function calculateMoves(notation, board){
                 }
 
                 //The index of the square we're checking
-                let i = getSquareIndex(notation, board);
+                let i = getSquareIndex(notation);
+                let squareExists = i != -1;
 
                 //If the square is taken by an enemy piece
-                if (board[i].piece && board[i].piece.color != color){
+                if (squareExists && board[i].piece && board[i].piece.color != color){
                     
                     //Add it to the moves array
                     moves.push(notation);                    
