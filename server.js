@@ -164,6 +164,10 @@ function getSquareIndex(notation){
 
     //For memory optimization, check only max 8 squares instead of max 64 squares
     //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
+
+    console.log(`notation: ${notation}`);
+    
+    
     let file = notation.substring(0, 1);
     let rank = notation.substring(1, 2);
     
@@ -186,6 +190,7 @@ function getSquareIndex(notation){
 //Returns an array of possible moves for the selected piece
 function calculateMoves(notation, board){
 
+    //Variables
     const moves = [];
     let i = getSquareIndex(notation);
     let color = board[i].piece.color;
@@ -198,7 +203,7 @@ function calculateMoves(notation, board){
     //Different pieces have different moves
     switch(piece.name){
 
-        //Pawn movement
+        //Pawn
         case 'pawn':
 
             let pawnDirection = color == 'white' ? 1 : -1; //White pawns move up the ranks, Black pawns move down
@@ -295,6 +300,58 @@ function calculateMoves(notation, board){
                 }
             }
         break;
+
+        //Knight
+        case 'knight':
+
+            //First file to check
+            let currFileNumber = pieceFileNumber - 2;
+
+            //Check all four possible files
+            for (let f = 0; f < 4; f++){
+
+                let currFile = fileConverter('file', currFileNumber);
+
+                //Check The two possible squares for the given file
+                for(let s = 0; s < 2; s++){
+
+                    let rankModifier;
+
+                    //Second and third iterations - check ranks on (pieceRank + 2) and (pieceRank - 2) 
+                    if (f == 1 || f == 2){
+                        rankModifier = 2;
+                    }
+
+                    //First and fourth iterations - check ranks on (pieceRank + 1) and (pieceRank - 1) 
+                    else{
+                        rankModifier = 1;
+                    }
+
+                    //If it is the first iteration
+                    if (s % 2 == 0){
+                        rankModifier *= -1;
+                    }
+
+                    let notation = currFile + (pieceRank + rankModifier);
+
+                    //If the square can be moved to(i.e. no ally piece on it)
+                    if (squareIsMoveable(notation, board, color)){
+
+                        moves.push(notation);
+                    }
+                }
+
+                //First and third iterations
+                if (f % 2 == 0){
+                    currFileNumber += 1;
+                }
+
+                //Second iteration
+                else{
+                    currFileNumber += 2;
+                }
+            }
+        break;
     }
 
     return moves;
@@ -303,6 +360,22 @@ function calculateMoves(notation, board){
 //#endregion
 
 //#region Helper methods
+
+//Returns false only if an ally piece is on the square
+function squareIsMoveable(notation, board, clientColor){
+
+    if (notation == -1 || notation == undefined || notation.length != 2){
+        return false;
+    }
+    
+    let i = getSquareIndex(notation);
+
+    if (i != - 1 && board[i].piece && board[i].piece.color == clientColor){
+        return false;
+    }
+
+    return true;
+}
 
 //Converts files to numbers and numbers to files
 function fileConverter(mode, arg){
@@ -350,6 +423,8 @@ function fileConverter(mode, arg){
                 return 8;
         }
     }
+
+    return -1;
 }
 
 //Initialize server(main method)

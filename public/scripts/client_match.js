@@ -379,8 +379,14 @@ client.on('turn', move => {
 
             //Pawn promotion
             else if(newRank == 1 || newRank == 8){
-                let color = black ? 'white' : 'black';
-                img[0].src = `../images/pieces/${color}_queen.png`;
+                
+                let queenColor = color;
+
+                //Get the proper promotion color
+                if (!turn){
+                    queenColor = black ? 'white' : 'black';
+                }
+                img[0].src = `../images/pieces/${queenColor}_queen.png`;
             }
         break;
     }
@@ -446,8 +452,10 @@ function onSquare(){
         let squareNotation = e.target.parentNode.id;
         let pieceColor = $(e.target).hasClass('black') ? 'black' : 'white';
 
-        //Client's piece - select the piece
+        //Client's piece
         if (pieceColor == 'black' && black || pieceColor == 'white' && !black){
+
+            //Disselect the currently selected piece, and select the new one
             selectPiece(squareNotation, true);
         }
 
