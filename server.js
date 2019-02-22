@@ -56,12 +56,14 @@ server.on('connection', client => {
         //Add each one of the players into the 'socket.server' room
         client.join(matchID);
         client.matchID = matchID;
+        client.color = 'white';
 
         //Choose sides
         if (server.sockets.adapter.rooms[`${matchID}`].length == 2){
 
             //One of the clients is selected to play black, the other one is white
             server.to(matchID).emit('assignSides', client.id);
+            client.color = 'black';
         }
     });
 
@@ -72,7 +74,9 @@ server.on('connection', client => {
     //Select a piece
     client.on('select', notation => {
 
+        
         let game = getMatch(client.matchID);
+        let board = game.board;
 
         //Unselect the piece - nothing for the server to do
         if (game.selected){
@@ -84,7 +88,39 @@ server.on('connection', client => {
         else{
             game.selected = true;
             game.selectedPosition = notation;
-            server.to(client.id).emit('moves', calculateMoves(notation, game.board));
+            let possibleMoves = calculateMoves(notation, board);
+            
+            //Check if the client's king is checked / pinned
+            if (board.check){
+
+                let movesClone = possibleMoves.slice(0);
+                let from = notation;
+                
+                //Loop through each move in the moves array and check if it is valid
+                for (let i = 0; i < possibleMoves.length; i++){
+                    
+                    let to = possibleMoves[i];
+                    let move = {
+                        from: from,
+                        to: to
+                    };
+
+                    //console.log(`${move.to} is legal: ${legalCheckMove(board.check, move, board)}`);
+                    
+
+                    //If the square is not legal
+                    if(!legalCheckMove(board.check, move, board)){
+
+                        //Remove it
+                        movesClone.splice(movesClone.indexOf(move.to), 1);
+                    }
+                }
+
+                //A clone is used to be able to splice the array while inside the loop
+                possibleMoves = movesClone;
+            }
+
+            server.to(client.id).emit('moves', possibleMoves);
         }
     });
 
@@ -164,7 +200,31 @@ server.on('connection', client => {
                 break;
             }
         }
-        
+
+        //Check for checkmate
+        if (board.check){
+
+            //Loop through all board squares
+            for (let i = 0; i < board.length; i++){
+
+                //Scan for enemy pieces
+                if (board[i].piece && board[i].piece.color != client.color){
+
+                    let moves = calculateMoves(board[i].notation.name, board);
+
+                    //If there's a possible move, break the loop - Game is not over
+                    if (moves.length > 0){
+                        break;
+                    }
+
+                }
+
+                //Game Over
+                if (i == board.length - 1){
+                    server.to(client.matchID).emit('gameOver', client.color);
+                }
+            }
+        }
 
         //#endregion
 
@@ -185,7 +245,7 @@ function getSquareIndex(notation){
     //For memory optimization, check only max 8 squares instead of max 64 squares
     //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
 
-    if (!notation.substring){
+    if (notation == undefined){
         return -1;
     }
 
@@ -300,14 +360,14 @@ function calculateMoves(notation, board){
             for(let j = 0; j < 2; j++){
 
                 let file = fileConverter('file', pieceFileNumber + diff);
+
+                //If no such file exists, continue to the next iteration (i.e. A0)
+                if (file == -1){
+                    continue;
+                }
                 
                 let notation = file + (pieceRank + pawnDirection);
                 diff *= -1;
-
-                //If no such file exists, continue to the next iteration (i.e. A0)
-                if (file == undefined){
-                    continue;
-                }
 
                 //The index of the square we're checking
                 let i = getSquareIndex(notation);
@@ -563,7 +623,8 @@ function calculateMoves(notation, board){
                     let notation = fileConverter('file', currFile) + currRank;
 
                     //If the square is moveable, add it to the possible list of moves
-                    if (squareIsMoveable(notation, board, color)){
+                    if (squareIsMoveable(notation, board, color)){                        
+
                         moves.push(notation);
 
                         //If the square has an enemy piece on it, break - as it blocks movement
@@ -661,6 +722,51 @@ function calculateMoves(notation, board){
 //#endregion
 
 //#region Helper methods
+
+//Calculate if the given move will stop the check
+function legalCheckMove(kingSquare, move, board){
+
+    //Variables
+    let clone = JSON.parse(JSON.stringify(board)); //to prevent mutation
+    let iFrom = getSquareIndex(move.from);
+    let iTo = getSquareIndex(move.to);
+    let opponentColor = clone[iFrom].piece.color == 'black' ? 'white' : 'black';
+    let pieceName = clone[iFrom].piece.name;
+
+    //Move the piece to the new square
+    clone[iTo].piece = clone[iFrom].piece;
+
+    //Remove the piece from the former location
+    delete clone[iFrom].piece;
+
+    //If moving the king, update the 'kingSquare' property
+    if (pieceName == 'king'){
+        kingSquare = clone[iTo].notation.name;
+    }
+
+    //Loop through squares on the board
+    for(let i = 0; i < clone.length; i++){
+
+        //If enemy piece
+        if (clone[i].piece && clone[i].piece.color == opponentColor){
+
+            let notation = clone[i].notation.name;
+            let moves = calculateMoves(notation, clone);
+            
+            //Loop through each possible move
+            for(let m = 0; m < moves.length; m++){
+
+                //The move is illegal while in check, return false
+                if (moves[m] == kingSquare){
+                    return false;
+                }
+            }
+        }
+    }
+
+    //The move is legal while checked
+    return true;
+}
 
 //Returns false only if an ally piece is on the square
 function squareIsMoveable(notation, board, clientColor){

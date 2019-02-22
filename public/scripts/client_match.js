@@ -438,9 +438,13 @@ client.on('turn', (move, checkedKing) => {
     }
 
     //#endregion
-
     
     turn = !turn;
+});
+
+client.on('gameOver', winner => {
+
+    alert(`${winner} wins!`);
 });
 
 //#endregion
