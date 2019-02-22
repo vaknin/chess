@@ -98,9 +98,8 @@ server.on('connection', client => {
         let newIndex = getSquareIndex(newPosition);
         let piece = board[formerIndex].piece;
 
-        //#region En Passant
+        //#region Pawns
 
-        //Check only situations with pawns
         if (piece.name == 'pawn'){
 
             let formerFile = formerPosition.substring(0, 1);
@@ -122,6 +121,13 @@ server.on('connection', client => {
                 //Remove the captured piece from the board on (newFile, oldRank)
                 let i = getSquareIndex(newFile + formerRank);
                 delete board[i].piece;
+            }
+
+            //Promotion
+            else if(newRank == 1 || newRank == 8){
+
+                //Set as queen (might do knight rook bishop later)
+                board[formerIndex].piece.name = 'queen';
             }
         }
 

@@ -320,8 +320,22 @@ client.on('moves', moves => {
 //Handle turn switching
 client.on('turn', move => {
 
+    //Variables
+    let disableDefaultSound = false;
+    let color = black ? 'black' : 'white';
+    let img = $($(`#${move.from}`)[0].children[0]);
+    let underscoreIndex = img[0].src.indexOf('_');
+    let periodIndex = img[0].src.lastIndexOf('.');
+    let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
+    let destination = $($(`#${move.to}`)[0]);
+    let squareToCheck = $(`#${move.to}`)[0];
+    let moveToEmptySquare = squareToCheck.children.length == 0;
+
     //End turn
     if (turn){
+
+        //Change document's title
+        document.title = 'Opponent\'s turn..';
 
         //Disable pointer cursor on piece hover
         $('.moveable').toggleClass('moveable', false);
@@ -329,75 +343,69 @@ client.on('turn', move => {
 
         //Toggle off selection effects
         selectPiece(selectedPiece, false);
-
-        //Change document's title
-        document.title = 'Opponent\'s turn..';
     }
 
     //Start turn
     else{
-
-        //Variables
-        let disableDefaultSound = false;
-        let color = black ? 'black' : 'white';
-        let img = $($(`#${move.from}`)[0].children[0]);
-        let underscoreIndex = img[0].src.indexOf('_');
-        let periodIndex = img[0].src.lastIndexOf('.');
-        let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
-        let destination = $($(`#${move.to}`)[0]);
-        let squareToCheck = $(`#${move.to}`)[0];
-        let moveToEmptySquare = squareToCheck.children.length == 0;
 
         //Change document's title
         document.title = 'Your turn!';
 
         //Set pieces pointer cursor for his own pieces on hover
         $(`.${color}`).toggleClass('clickable', true);
-
-        //Special moves
-        switch(pieceName){
-
-            //En Passant
-            case 'pawn':
-                let oldFile = move.from.substring(0, 1);
-                let newFile = move.to.substring(0, 1);
-
-                //Execute 'En Passant'
-                if (oldFile != newFile && moveToEmptySquare){
-                    
-                    let oldRank = move.from.substring(1, 2);
-                    $(`#${newFile + oldRank}`)[0].children[0].remove();
-
-                    //Play piece capture sound
-                    captureSound.play();
-                    disableDefaultSound = true;
-                }
-            break;
-        }
-        
-        //Piece capture
-        if (!moveToEmptySquare){
-
-            //Remove it's image
-            squareToCheck.children[0].remove();
-
-            //Play capture sound
-            if (!disableDefaultSound){
-                captureSound.play();
-            }
-        }
-
-        //Piece movement
-        else{
-            if (!disableDefaultSound){
-                moveSound.play();
-            }
-        }
-
-        //Update the board from the previous move
-        img.appendTo(destination);
     }
 
+     //Special moves
+     switch(pieceName){
+
+        //Pawns
+        case 'pawn':
+            let oldFile = move.from.substring(0, 1);
+            let newFile = move.to.substring(0, 1);
+
+            let oldRank = move.from.substring(1, 2);
+            let newRank = move.to.substring(1, 2);
+
+
+            //En passant
+            if (oldFile != newFile && moveToEmptySquare){
+                
+                $(`#${newFile + oldRank}`)[0].children[0].remove();
+
+                //Play piece capture sound
+                captureSound.play();
+                disableDefaultSound = true;
+            }
+
+            //Pawn promotion
+            else if(newRank == 1 || newRank == 8){
+                let color = black ? 'white' : 'black';
+                img[0].src = `../images/pieces/${color}_queen.png`;
+            }
+        break;
+    }
+    
+    //Piece capture
+    if (!moveToEmptySquare){
+
+        //Remove it's image
+        squareToCheck.children[0].remove();
+
+        //Play capture sound
+        if (!disableDefaultSound){
+            captureSound.play();
+        }
+    }
+
+    //Piece movement
+    else if (!disableDefaultSound){
+
+        //Play piece movement sound
+        moveSound.play();
+    }
+    
+    //Update the piece image location
+    img.appendTo(destination);
     turn = !turn;
 });
 
@@ -411,8 +419,6 @@ function onSquare(){
     //Click on a square
     $('td').on('click', (e) => {
 
-        let disableDefaultSound = false;
-
         //If it's not your turn, return
         if (!turn){
             return;
@@ -421,30 +427,11 @@ function onSquare(){
         //If the square can legally be moved to
         if ($(e.target).hasClass('moveable')){
 
-            //En Passant
-            let oldFile = selectedPiece.substring(0, 1);
-            let newFile = e.target.id.substring(0, 1);
-
-            //Execute 'En Passant'
-            if (oldFile != newFile){
-                
-                let oldRank = selectedPiece.substring(1, 2);
-                $(`#${newFile + oldRank}`)[0].children[0].remove();
-                captureSound.play();
-                disableDefaultSound = true;
-            }
-
-            //Move the image from the former position to the current one
-            let img = $($(`#${selectedPiece}`)[0].children[0]);
-            img.appendTo(e.target);
+            //The square's notation
+            let notation = e.target.id;
 
             //Update the server
-            client.emit('move', e.target.id);
-
-            //Play move sound unless specified otherwise
-            if (!disableDefaultSound){
-                moveSound.play();
-            }
+            client.emit('move', notation);
         }       
     });
 
@@ -458,7 +445,6 @@ function onSquare(){
 
         let squareNotation = e.target.parentNode.id;
         let pieceColor = $(e.target).hasClass('black') ? 'black' : 'white';
-        let td = $(e.target.parentNode);
 
         //Client's piece - select the piece
         if (pieceColor == 'black' && black || pieceColor == 'white' && !black){
@@ -477,18 +463,8 @@ function onSquare(){
                 //The square's notation
                 let notation = e.target.parentNode.id;
 
-                //Remove the image of the captured piece
-                e.target.remove();
-
-                //Move the image from the former square to the new one
-                let img = $($(`#${selectedPiece}`)[0].children[0]);
-                img.appendTo($(`#${notation}`));
-
                 //Update the server
                 client.emit('move', notation);
-
-                //Play capture sound
-                captureSound.play();
             }
         }
     });
