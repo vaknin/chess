@@ -97,6 +97,7 @@ server.on('connection', client => {
         let formerIndex = getSquareIndex(formerPosition);
         let newIndex = getSquareIndex(newPosition);
         let piece = board[formerIndex].piece;
+        delete board.doubleMove; //Disable en passant opportunity if not used
 
         //#region Pawns
 
@@ -165,9 +166,10 @@ function getSquareIndex(notation){
     //For memory optimization, check only max 8 squares instead of max 64 squares
     //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
 
-    console.log(`notation: ${notation}`);
-    
-    
+    if (!notation.substring){
+        return -1;
+    }
+
     let file = notation.substring(0, 1);
     let rank = notation.substring(1, 2);
     
@@ -203,7 +205,7 @@ function calculateMoves(notation, board){
     //Different pieces have different moves
     switch(piece.name){
 
-        //Pawn
+        //#region Pawn
         case 'pawn':
 
             let pawnDirection = color == 'white' ? 1 : -1; //White pawns move up the ranks, Black pawns move down
@@ -237,7 +239,7 @@ function calculateMoves(notation, board){
 
                 //En Passant;
                 //Check if a double move has occured in the last game
-                if (board.doubleMove != undefined){
+                if (board.doubleMove){
                     
                     //Check if it is the proper rank
                     let doubleMoveRank = parseInt(board.doubleMove.substring(1, 2));
@@ -300,8 +302,9 @@ function calculateMoves(notation, board){
                 }
             }
         break;
+        //#endregion
 
-        //Knight
+        //#region Knight
         case 'knight':
 
             //First file to check
@@ -352,6 +355,71 @@ function calculateMoves(notation, board){
                 }
             }
         break;
+        //#endregion
+
+        //#region Bishop
+        case 'bishop':
+
+            //Every bishop moves in 4 diagonal directions, check each of them
+            for(let i = 1; i <= 4; i++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+                
+                //Maximum diagonal travel distance is 7 squares - loop through them
+                for(let d = 0; d < 7; d++){
+
+                    //Decide the diagonal direction (uu/ud/du/dd)
+                    switch(i){
+                    
+                        //Up the files, up the ranks
+                        case 1:
+                        currFile += 1;
+                        currRank += 1;
+
+                    break;
+                        //Up the files, down the ranks
+                        case 2:
+                        currFile += 1;
+                        currRank -= 1;
+                            
+                    break;
+                        //Down the files, up the ranks
+                        case 3:
+                        currFile -= 1;
+                        currRank += 1;
+                            
+                    break;
+
+                        //Down the files, down the ranks
+                        case 4:
+                        currFile -= 1;
+                        currRank -= 1;
+                            
+                    break;
+                    }
+
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break(as it blocks the bishop)
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+
+                    //If not, break the loop, pieces cannot go through other pieces
+                    else break;
+                }
+            } 
+
+        break;
+        //#endregion
     }
 
     return moves;
@@ -364,10 +432,10 @@ function calculateMoves(notation, board){
 //Returns false only if an ally piece is on the square
 function squareIsMoveable(notation, board, clientColor){
 
-    if (notation == -1 || notation == undefined || notation.length != 2){
+    if (notation == -1 || notation == undefined || notation.length != 2 || notation[1] <= 0 || notation[1] >= 9){
         return false;
     }
-    
+
     let i = getSquareIndex(notation);
 
     if (i != - 1 && board[i].piece && board[i].piece.color == clientColor){
