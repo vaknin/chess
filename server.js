@@ -478,6 +478,162 @@ function calculateMoves(notation, board){
         break;
 
         //#endregion
+
+        //#region Queen
+
+        case 'queen':
+
+            //The queen can move in 8 different directions
+            for (let direction = 1; direction <= 8; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                //Maximum number of steps is 7
+                for(let i = 1; i<= 7; i++){
+
+                    switch(direction){
+
+                        //Up the files(left to right)
+                        case 1:
+                            currFile += 1;
+                        break;
+
+                        //Down the files(right to left)
+                        case 2:
+                            currFile -= 1;
+                        break;
+
+                        //Up the ranks(bottom to top)
+                        case 3:
+                            currRank += 1;
+                        break;
+
+                        //Down the ranks(top to bottom)
+                        case 4:
+                            currRank -= 1;
+                        break;
+
+                        //Up the files + up the ranks (diagonal topright)
+                        case 5:
+                            currFile += 1;
+                            currRank += 1;
+                        break;
+
+                        //Up the files + down the ranks (diagonal bottomright)
+                        case 6:
+                            currFile += 1;
+                            currRank -= 1;
+
+                        break;
+
+                        //Down the files + up the ranks (diagonal topleft)
+                        case 7:
+                            currFile -= 1;
+                            currRank += 1;                    
+                        break;
+
+                        //Down the files + down the ranks (diagonal bottomleft)
+                        case 8:
+                            currFile -= 1;
+                            currRank -= 1;
+                        break;
+                    }
+
+                    //The square to check
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break - as it blocks movement
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+                    //If the square is blocked by an ally piece or the square doesn't exist - break
+                    else break;
+
+                }
+            }
+
+        break;
+
+        //#endregion
+
+        //#region King
+
+        case 'king':
+
+            //The king can move in 8 different directions
+            for (let direction = 1; direction <= 8; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                switch(direction){
+
+                    //Up the files(left to right)
+                    case 1:
+                        currFile += 1;
+                    break;
+
+                    //Down the files(right to left)
+                    case 2:
+                        currFile -= 1;
+                    break;
+
+                    //Up the ranks(bottom to top)
+                    case 3:
+                        currRank += 1;
+                    break;
+
+                    //Down the ranks(top to bottom)
+                    case 4:
+                        currRank -= 1;
+                    break;
+
+                    //Up the files + up the ranks (diagonal topright)
+                    case 5:
+                        currFile += 1;
+                        currRank += 1;
+                    break;
+
+                    //Up the files + down the ranks (diagonal bottomright)
+                    case 6:
+                        currFile += 1;
+                        currRank -= 1;
+
+                    break;
+
+                    //Down the files + up the ranks (diagonal topleft)
+                    case 7:
+                        currFile -= 1;
+                        currRank += 1;                    
+                    break;
+
+                    //Down the files + down the ranks (diagonal bottomleft)
+                    case 8:
+                        currFile -= 1;
+                        currRank -= 1;
+                    break;
+                }
+
+                //The square to check
+                let notation = fileConverter('file', currFile) + currRank;
+
+                //If the square is moveable, add it to the possible list of moves
+                if (squareIsMoveable(notation, board, color)){
+                    moves.push(notation);
+                }
+            }
+
+        break;
+
+        //#endregion
     }
 
     return moves;
