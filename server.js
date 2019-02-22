@@ -420,6 +420,64 @@ function calculateMoves(notation, board){
 
         break;
         //#endregion
+
+        //#region Rook
+        case 'rook':
+
+            //Rooks can move in four different directions
+            for(let direction = 1; direction <= 4; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                //Maximum travel distance is 7, check each of the squares
+                for(let i = 1; i <= 7; i++){
+
+                    switch(direction){
+
+                        //Up the Files (left to right)
+                        case 1:
+                            currFile += 1;
+                        break;
+
+                        //Up the Ranks (bottom to top)
+                        case 2:
+                            currRank += 1;
+                        break;
+
+                        //Down the files (right to left)
+                        case 3:
+                            currFile -= 1;
+                        break;
+
+                        //Down the ranks (top to bottom)
+                        case 4:
+                            currRank -= 1;
+                        break;
+                    }
+
+                    //The square to check
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break - as it blocks movement
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+                    //If the square is blocked by an ally piece or the square doesn't exist - break
+                    else break;
+                }
+            }
+
+        break;
+
+        //#endregion
     }
 
     return moves;
