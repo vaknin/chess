@@ -428,13 +428,17 @@ client.on('turn', (move, checkedKing) => {
     
     //#region Checks
 
-    //A check was made
+    //If the king is checked - toggle red border for the king
     if (checkedKing){
 
-        //Toggle the checked class on for the king's square
+        //Get the king piece as a variable
         let king = $(`#${checkedKing}`);
-        
         king.toggleClass('checked', true);
+    }
+
+    //Remove red border if exists
+    else{
+        $('.checked').toggleClass('checked', false);
     }
 
     //#endregion

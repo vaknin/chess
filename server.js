@@ -16,6 +16,8 @@ class Match{
         this.player1 = player1;
         this.player2 = player2;
         this.board = getInitialBoard();
+        this.board.whiteKing = 'E1';
+        this.board.blackKing = 'E8';
     }
 }   
 
@@ -79,20 +81,19 @@ server.on('connection', client => {
         let board = game.board;
 
         //Unselect the piece - nothing for the server to do
-        if (game.selected){
-            game.selected = false;
+        if (game.selectedPiece){
+            delete game.selectedPiece;
             return;
         }
 
         //Select a piece - send legal moves to the client
         else{
-            game.selected = true;
-            game.selectedPosition = notation;
+            game.selectedPiece = notation;
             let possibleMoves = calculateMoves(notation, board);
             
-            //Check if the client's king is checked / pinned
+            //Check if the client's king is checked
             if (board.check){
-
+                
                 let movesClone = possibleMoves.slice(0);
                 let from = notation;
                 
@@ -104,9 +105,6 @@ server.on('connection', client => {
                         from: from,
                         to: to
                     };
-
-                    //console.log(`${move.to} is legal: ${legalCheckMove(board.check, move, board)}`);
-                    
 
                     //If the square is not legal
                     if(!legalCheckMove(board.check, move, board)){
@@ -120,22 +118,27 @@ server.on('connection', client => {
                 possibleMoves = movesClone;
             }
 
+            //Check if the selected piece is pinned
+            possibleMoves = deductPinMoves(game.selectedPiece, possibleMoves, board);
             server.to(client.id).emit('moves', possibleMoves);
         }
     });
 
-    //Move and capture a piece
+    //Move and/or capture a piece
     client.on('move', newPosition => {
 
         //Variables
         let board = getMatch(client.matchID).board;
-        let formerPosition = getMatch(client.matchID).selectedPosition;
+        let formerPosition = getMatch(client.matchID).selectedPiece;
         let formerIndex = getSquareIndex(formerPosition);
         let newIndex = getSquareIndex(newPosition);
         let piece = board[formerIndex].piece;
-        delete board.doubleMove; //Disable en passant opportunity if not used
+        let clientColor = piece.color;
 
-        //#region Pawns
+        //Disable en passant opportunity if not used immediately
+        delete board.doubleMove; 
+
+        //#region Specific Pieces
 
         if (piece.name == 'pawn'){
 
@@ -168,6 +171,20 @@ server.on('connection', client => {
             }
         }
 
+        //King moved - update it's location
+        else if (piece.name == 'king'){
+
+            //White king
+            if (clientColor == 'white'){
+                board.whiteKing = newPosition;
+            }
+
+            //Black king
+            else{
+                board.blackKing = newPosition;
+            }
+        }
+
         //#endregion
 
         //Change the piece's 'moved' property to true
@@ -186,6 +203,9 @@ server.on('connection', client => {
         };
 
         //#region Checks
+
+        //Set the board as not checked, from the previous move
+        delete board.check;
         
         //Get an array of possible moves
         let moves = calculateMoves(newPosition, board);
@@ -360,6 +380,7 @@ function calculateMoves(notation, board){
             for(let j = 0; j < 2; j++){
 
                 let file = fileConverter('file', pieceFileNumber + diff);
+                diff *= -1;
 
                 //If no such file exists, continue to the next iteration (i.e. A0)
                 if (file == -1){
@@ -367,7 +388,6 @@ function calculateMoves(notation, board){
                 }
                 
                 let notation = file + (pieceRank + pawnDirection);
-                diff *= -1;
 
                 //The index of the square we're checking
                 let i = getSquareIndex(notation);
@@ -722,6 +742,58 @@ function calculateMoves(notation, board){
 //#endregion
 
 //#region Helper methods
+
+//Returns a list of moves without moves that can leave the king undefended (the piece is pinned)
+function deductPinMoves(piece, moves, board){
+
+    //Variables
+    let selectedPieceIndex = getSquareIndex(piece);
+    let opponentColor = board[selectedPieceIndex].piece.color == 'white' ? 'black' : 'white';
+    let kingSquare = board[selectedPieceIndex].piece.color == 'white' ? board.whiteKing : board.blackKing;
+    let movesClone = moves.slice(0);
+    
+    //Loop through the piece's moves
+    outerloop:
+    for (let i = 0; i < moves.length; i++){
+
+        //Variables
+        let boardClone = JSON.parse(JSON.stringify(board)); //board's clone, used to avoid mutation
+        let moveIndex = getSquareIndex(moves[i]);
+
+        //Implement the move on the cloned board, and check if by moving the piece, the king might remain undefended
+
+        //Delete the piece (if exists) from the move's destination
+        delete boardClone[moveIndex].piece;
+        //Add the selected piece:
+        boardClone[moveIndex].piece = board[selectedPieceIndex].piece;
+        //Delete the piece from the former position
+        delete boardClone[selectedPieceIndex].piece;
+
+
+        //Loop through the boards squares and look for opponent pieces
+        for (let s = 0; s < board.length; s++){
+
+            //Enemy piece
+            if (boardClone[s].piece && boardClone[s].piece.color == opponentColor){
+                
+                let notation = boardClone[s].notation.name;
+                let opponentMoves = calculateMoves(notation, boardClone);
+            
+                //Loop through each possible move
+                for(let m = 0; m < opponentMoves.length; m++){
+
+                    //If after moving, an enemy piece can target the king, delete the move from the array
+                    if (opponentMoves[m] == kingSquare){
+                        movesClone.splice(i, 1);
+                        continue outerloop;
+                    }
+                }
+            }
+        }
+    }
+
+    return movesClone;
+}
 
 //Calculate if the given move will stop the check
 function legalCheckMove(kingSquare, move, board){
