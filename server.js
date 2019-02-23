@@ -90,9 +90,10 @@ server.on('connection', client => {
         else{
             game.selectedPiece = notation;
             let possibleMoves = calculateMoves(notation, board);
+            let pieceName = board[getSquareIndex(notation)].piece.name;
             
             //Check if the client's king is checked
-            if (board.check){
+            if (board.check || pieceName == 'king'){
                 
                 let movesClone = possibleMoves.slice(0);
                 let from = notation;
@@ -206,41 +207,59 @@ server.on('connection', client => {
 
         //Set the board as not checked, from the previous move
         delete board.check;
-        
-        //Get an array of possible moves
-        let moves = calculateMoves(newPosition, board);
 
-        //Loop through all moves and check if the king is checked
-        for(let i = 0; i < moves.length; i++){
+        //After a move is made, check whether the opponent's king is checked - scan all squares
+        for (let s = 0; s < board.length; s++){
 
-            let index = getSquareIndex(moves[i]);
-            
-            if (board[index].piece && board[index].piece.name == 'king'){
-                board.check = moves[i];
-                break;
+            //If it is the client's piece
+            if (board[s].piece && board[s].piece.color == clientColor){
+
+                //Get an array of possible moves
+                let moves = calculateMoves(board[s].notation.name, board);
+
+                //Loop through all moves and check if the king is checked
+                for(let i = 0; i < moves.length; i++){
+
+                    let index = getSquareIndex(moves[i]);
+                    
+                    if (board[index].piece && board[index].piece.name == 'king'){
+                        board.check = moves[i];
+                        break;
+                    }
+                }
             }
         }
-
+        
         //Check for checkmate
         if (board.check){
 
             //Loop through all board squares
+            outerloop:
             for (let i = 0; i < board.length; i++){
 
                 //Scan for enemy pieces
                 if (board[i].piece && board[i].piece.color != client.color){
 
                     let moves = calculateMoves(board[i].notation.name, board);
+                    let move = {
+                        from: board[i].notation.name,
+                        to: undefined
+                    };
 
-                    //If there's a possible move, break the loop - Game is not over
-                    if (moves.length > 0){
-                        break;
+                    //Iterate through every move and check if valid
+                    for (let m = 0; m < moves.length; m++){
+
+                        move.to = moves[m];
+
+                        //If it is a valid check move, break the loop, not checkmate
+                        if (legalCheckMove(board.check, move, board)){
+                            break outerloop;
+                        }
                     }
-
                 }
 
-                //Game Over
-                if (i == board.length - 1){
+                //Last iteration and didn't break, checkmate
+                if (i == 63){
                     server.to(client.matchID).emit('gameOver', client.color);
                 }
             }
@@ -747,15 +766,16 @@ function calculateMoves(notation, board){
 function deductPinMoves(piece, moves, board){
 
     //Variables
-    let selectedPieceIndex = getSquareIndex(piece);
-    let opponentColor = board[selectedPieceIndex].piece.color == 'white' ? 'black' : 'white';
-    let kingSquare = board[selectedPieceIndex].piece.color == 'white' ? board.whiteKing : board.blackKing;
+    let pieceIndex = getSquareIndex(piece);
+    let opponentColor = board[pieceIndex].piece.color == 'white' ? 'black' : 'white';
+    let pieceName = board[pieceIndex].piece.name;
+    let kingSquare = board[pieceIndex].piece.color == 'white' ? board.whiteKing : board.blackKing;
     let movesClone = moves.slice(0);
     
     //Loop through the piece's moves
     outerloop:
     for (let i = 0; i < moves.length; i++){
-
+        
         //Variables
         let boardClone = JSON.parse(JSON.stringify(board)); //board's clone, used to avoid mutation
         let moveIndex = getSquareIndex(moves[i]);
@@ -764,11 +784,17 @@ function deductPinMoves(piece, moves, board){
 
         //Delete the piece (if exists) from the move's destination
         delete boardClone[moveIndex].piece;
-        //Add the selected piece:
-        boardClone[moveIndex].piece = board[selectedPieceIndex].piece;
-        //Delete the piece from the former position
-        delete boardClone[selectedPieceIndex].piece;
 
+        //Add the selected piece:
+        boardClone[moveIndex].piece = board[pieceIndex].piece;
+
+        //Delete the piece from the former position
+        delete boardClone[pieceIndex].piece;
+
+        //If the piece is a king - update the 'kingSquare' property
+        if (pieceName == 'king'){
+            kingSquare = moves[i];
+        }
 
         //Loop through the boards squares and look for opponent pieces
         for (let s = 0; s < board.length; s++){
@@ -784,7 +810,8 @@ function deductPinMoves(piece, moves, board){
 
                     //If after moving, an enemy piece can target the king, delete the move from the array
                     if (opponentMoves[m] == kingSquare){
-                        movesClone.splice(i, 1);
+
+                        movesClone.splice(movesClone.indexOf(moves[i]), 1);
                         continue outerloop;
                     }
                 }
@@ -800,20 +827,31 @@ function legalCheckMove(kingSquare, move, board){
 
     //Variables
     let clone = JSON.parse(JSON.stringify(board)); //to prevent mutation
-    let iFrom = getSquareIndex(move.from);
-    let iTo = getSquareIndex(move.to);
-    let opponentColor = clone[iFrom].piece.color == 'black' ? 'white' : 'black';
-    let pieceName = clone[iFrom].piece.name;
+    let fromIndex = getSquareIndex(move.from);
+    let toIndex = getSquareIndex(move.to);
+    let opponentColor = clone[fromIndex].piece.color == 'black' ? 'white' : 'black';
+    let pieceName = clone[fromIndex].piece.name;
 
     //Move the piece to the new square
-    clone[iTo].piece = clone[iFrom].piece;
+    clone[toIndex].piece = clone[fromIndex].piece;
 
     //Remove the piece from the former location
-    delete clone[iFrom].piece;
+    delete clone[fromIndex].piece;
 
     //If moving the king, update the 'kingSquare' property
     if (pieceName == 'king'){
-        kingSquare = clone[iTo].notation.name;
+
+        kingSquare = clone[toIndex].notation.name;
+
+        //White player
+        if (opponentColor == 'black'){
+            clone.whiteKing = clone[toIndex].notation.name;
+        }
+
+        //Black player
+        else{
+            clone.blackKing = clone[toIndex].notation.name;
+        }
     }
 
     //Loop through squares on the board
