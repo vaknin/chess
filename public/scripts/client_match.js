@@ -19,20 +19,11 @@ class Position{
 
 //Piece
 class Piece{
-    constructor(color, type, position){
+    constructor(notation, color, name){
+        this.notation = notation;
         this.color = color;
-        this.type = type;
-        this.position = position;
+        this.name = name;
         this.moved = false;
-    }
-}
-
-//Chess notation, i.e. "H3" or "A7"
-class Notation{
-    constructor(file, rank){
-        this.file = file;
-        this.rank = rank;
-        this.name = file + rank;
     }
 }
 
@@ -42,13 +33,12 @@ class Notation{
 
 //Consts
 const client = io();
-const board = [];
 const pieces = [];
-
 const captureSound = new Audio('../sounds/Capture.mp3');
 const moveSound = new Audio('../sounds/Move.mp3');
 
 //Lets
+let board;
 let black, turn, selectedPiece, legalMoves;
 
 //Main method
@@ -60,23 +50,22 @@ initializeBoard();
 
 //Master function to initialize the board:
 async function initializeBoard(){
+
+    //Join the socket.io room
     joinRoom();
+
+    //Wait for server response, when sides are chosen, continue
     await colorDecided();
+
+    //Build the board, and add pieces on top on the squares, also add on-click listeners
     buildBoard();
     addPieces();
     onSquare();
-    if (black)
+
+    //Flip 180 degs
+    if (black){
         flipBoard();
-}
-
-//Connects the client to the server via socket.io
-function joinRoom(){
-
-    document.title = `${document.location.href.substring(document.location.href.length - 6, document.location.href.length)}`;
-    let matchID = document.title.substring(document.title.indexOf('#') + 1, document.title.length);
-
-    //Join the socket.io room
-    client.emit('join', matchID);
+    }
 }
 
 //Builds the board's files and ranks
@@ -170,7 +159,7 @@ function buildBoard(){
             break;
         }
 
-        return new Notation(f, r);
+        return f+r;
     }
 
     //Build an 8x8 grid, each square will have: position('H3'), and might have a piece('black', 'pawn'):
@@ -183,10 +172,9 @@ function buildBoard(){
         //Add 8 squares to each row
         for (let f = 0; f < 8; f++){
             let notation = getNotation(r, f);
-            $(row).append(`<td id= \'${notation.name}\' ></td>`);
+            $(row).append(`<td id= \'${notation}\' ></td>`);
             let td = row.children[f];
             assignColor(r, f, td);
-            board.push(new Square(notation, td));
         }
     }
 }
@@ -197,17 +185,18 @@ function addPieces(){
     //Loop through all squares in the board
     for (let i = 0; i < board.length; i++){
 
-        let onRank1 = board[i].notation.rank == 1;
-        let onRank2 = board[i].notation.rank == 2;
-        let onRank7 = board[i].notation.rank == 7;
-        let onRank8 = board[i].notation.rank == 8;
+        let file = board[i].notation.substring(0, 1);
+        let rank = board[i].notation.substring(1, 2);
+        let onRank1 = rank == 1;
+        let onRank2 = rank == 2;
+        let onRank7 = rank == 7;
+        let onRank8 = rank == 8;
 
         //Ranks 1,2,7 and 8 and the only ranks with pieces on them
         if (onRank1 || onRank2 || onRank7 || onRank8){
             
-            //Variables for easier reference
-            let file = board[i].notation.file;
-            let td = board[i].td;
+            //Variables
+            let notation = board[i].notation;
             let pieceName, pieceColor;
 
             //White pieces
@@ -251,7 +240,7 @@ function addPieces(){
                 //Kings
                 else pieceName = 'king';
             }
-            $(td).append(`<img class= '${pieceColor}' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
+            $(`#${notation}`).append(`<img class= '${pieceColor}' src= \'../images/pieces/${pieceColor}_${pieceName}.png\'>`);
         }
     }
 
@@ -285,40 +274,74 @@ async function colorDecided(){
     });
 }
 
-//#endregion
+//Returns false only if an ally piece is on the square
+function squareIsMoveable(notation, board, clientColor){
 
-//#region Handle server emissions
-
-//Assign sides:
-client.on('assignSides', blackID => {
-
-    // Client is white
-    if (client.id != blackID){
-        black = false;
-        turn = true;
-        document.title = 'Your turn!';
+    if (notation == -1 || notation == undefined || notation.length != 2 || notation[1] <= 0 || notation[1] >= 9){
+        return false;
     }
 
-    // Client is black
-    else{
-        black = true;
-        document.title = 'Opponent\'s turn..';
-    }
-});
+    let i = getSquareIndex(notation);
 
-//Receive an array of possible moves:
-client.on('moves', moves => {
-
-    //Add the class 'moveable' to the legal squares
-    for(let i = 0; i < moves.length; i++){
-        $(`#${moves[i]}`).toggleClass('moveable', true);
+    if (i != - 1 && board[i].piece && board[i].piece.color == clientColor){
+        return false;
     }
 
-    legalMoves = moves;
-});
+    return true;
+}
 
-//Handle turn switching
-client.on('turn', (move, checkedKing) => {
+//Converts files to numbers and numbers to files
+function fileConverter(mode, arg){
+
+    //Conver a number to file, i.e. 1 -> A, H -> 8
+    if (mode == 'file'){
+        switch(arg){
+            case 1:
+            return 'A';
+            case 2:
+            return 'B';
+            case 3:
+            return 'C';
+            case 4:
+            return 'D';
+            case 5:
+            return 'E';
+            case 6:
+            return 'F';
+            case 7:
+            return 'G';
+            case 8:
+            return 'H';
+        }
+    }
+
+    //Conver a file to a number, i.e. A -> 1, 8 -> H
+    else if (mode == 'number'){
+        switch(arg){
+            case 'A':
+                return 1;
+            case 'B':
+                return 2;
+            case 'C':
+                return 3;
+            case 'D':
+                return 4;
+            case 'E':
+                return 5;
+            case 'F':
+                return 6;
+            case 'G':
+                return 7;
+            case 'H':
+                return 8;
+        }
+    }
+
+    return -1;
+}
+
+//This function is in charge of: 1)Images 2)Sounds 3)Update values 4)Check for checks & mates 5)Communicate with the server
+function implementMove(move){
 
     //#region Variables
     let disableDefaultSound = false;
@@ -333,7 +356,20 @@ client.on('turn', (move, checkedKing) => {
 
     //#endregion
 
-    //#region Turn switch effects(document title, etc.)
+    //#region Update Values
+
+    //Remove the former piece from the destination square
+    delete board[getSquareIndex(move.to)].piece;
+
+    //Add the new piece 
+    board[getSquareIndex(move.to)].piece = board[getSquareIndex(move.from)].piece;
+
+    //Remove the piece from it's former position
+    delete board[getSquareIndex(move.from)].piece;
+
+    //#endregion
+
+    //#region Aesthetics
 
     //End turn
     if (turn){
@@ -361,7 +397,7 @@ client.on('turn', (move, checkedKing) => {
 
     //#endregion
 
-    //#region Special moves(en passant, pawn promotion, castle, etc)
+    //#region Handle special moves
 
     switch(pieceName){
 
@@ -400,7 +436,7 @@ client.on('turn', (move, checkedKing) => {
 
     //#endregion
     
-    //#region On capture / On move (images and sounds)
+    //#region Images & Sounds
 
     //On piece capture
     if (!moveToEmptySquare){
@@ -426,13 +462,13 @@ client.on('turn', (move, checkedKing) => {
 
     //#endregion
     
-    //#region Checks
+    //#region Checks and Checkmates
 
     //If the king is checked - toggle red border for the king
-    if (checkedKing){
+    if (board.inCheck){
 
         //Get the king piece as a variable
-        let king = $(`#${checkedKing}`);
+        let king = $(`#${board.inCheck}`);
         king.toggleClass('checked', true);
     }
 
@@ -440,16 +476,705 @@ client.on('turn', (move, checkedKing) => {
     else{
         $('.checked').toggleClass('checked', false);
     }
-
     //#endregion
-    
+
+    //Emit to server
+    if (turn){
+        client.emit('move', move);
+    }
+
     turn = !turn;
+
+}
+
+//#endregion
+
+//#region Server communication
+
+//Assign sides and receive the board
+client.on('assignSides', (blackID, defaultBoard) => {
+
+    // Client is white
+    if (client.id != blackID){
+        black = false;
+        turn = true;
+        document.title = 'Your turn!';
+    }
+
+    // Client is black
+    else{
+        black = true;
+        document.title = 'Opponent\'s turn..';
+    }
+
+    //Send the board, it contains the squares, pieces locations, etc
+    defaultBoard.inCheck = false;
+    defaultBoard.doubleMove = false;
+    defaultBoard.whiteKing = 'E1';
+    defaultBoard.blackKing = 'E8';
+    board = defaultBoard;
+});
+
+client.on('move', move => {
+    implementMove(move);
 });
 
 client.on('gameOver', winner => {
 
     alert(`${winner} wins!`);
 });
+
+//Connects the client to the server via socket.io
+function joinRoom(){
+
+    document.title = `${document.location.href.substring(document.location.href.length - 6, document.location.href.length)}`;
+    let matchID = document.title.substring(document.title.indexOf('#') + 1, document.title.length);
+
+    //Join the socket.io room
+    client.emit('join', matchID);
+}
+
+//#endregion
+
+//#region Chess Logic
+
+//Returns the square's index by giving it the square's notation
+function getSquareIndex(notation){
+
+    //For memory optimization, check only max 8 squares instead of max 64 squares
+    //That is possible due to board[0 ~ 7] represent rank 8, board[8~15] represent rank 7 and so on
+
+    if (notation == undefined){
+        return -1;
+    }
+
+    let file = notation.substring(0, 1);
+    let rank = notation.substring(1, 2);
+    
+    let i = (8 - rank) * 8;
+    let stop = i + 8;
+
+    for (;i < stop; i++){
+
+        //The square has the same rank and file, return it's array index
+        let exists = board[i] != undefined;
+        
+        if (exists && board[i].notation.substring(0, 1) == file){
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+//#region Populate moves array
+
+//calculateMoves -> deductPinMoves -> (if check) -> legalCheckMove
+function getPossibleMoves(notation){
+
+    let moves = calculateMoves(notation);
+    moves = deductPinMoves(notation, moves);
+    let pieceName = board[getSquareIndex(notation)].piece.name;
+
+    //Deduct illegal check moves
+    if (board.inCheck || pieceName == 'king'){
+        
+        let movesClone = moves.slice(0);
+        let from = notation;
+        
+        //Loop through each move in the moves array and check if it is valid
+        for (let i = 0; i < moves.length; i++){
+            
+            let to = moves[i];
+            let move = {
+                from: from,
+                to: to
+            };
+
+            //If the square is not legal
+            if(!legalCheckMove(board.inCheck, move)){
+
+                //Remove it
+                movesClone.splice(movesClone.indexOf(move.to), 1);
+            }
+        }
+
+        //A clone is used to be able to splice the array while inside the loop
+        moves = movesClone;
+    }
+
+    return moves;
+
+}
+
+//Returns an array of possible moves for the selected piece
+function calculateMoves(notation){
+
+    //Variables
+    let moves = [];
+    let i = getSquareIndex(notation);
+    let color = board[i].piece.color;
+    let piece = board[i].piece;
+    let pieceAlreadyMoved = board[i].piece.moved;
+    let pieceFile = notation.substring(0, 1);
+    let pieceRank = parseInt(notation.substring(1, 2));
+    let pieceFileNumber = fileConverter('number', pieceFile);
+
+    //Different pieces have different moves
+    switch(piece.name){
+
+        //#region Pawn
+        case 'pawn':
+
+            let pawnDirection = color == 'white' ? 1 : -1; //White pawns move up the ranks, Black pawns move down
+
+            //The pawn hasn't moved yet, allow double move
+            if (!pieceAlreadyMoved){
+
+                //Scan the next two squares the pawn is facing (i.e. E2 pawn is facing E3 and E4)
+                for (let i = 1; i <= 2; i++){
+                    let squareToCheck = `${pieceFile}${pieceRank + (i * pawnDirection)}`;
+                    
+                    //If the square is empty, add it to possible moves array
+                    if(!board[getSquareIndex(squareToCheck)].piece){
+                        moves.push(squareToCheck);
+                    }
+
+                    else break;
+                }
+            }
+            
+            //The pawn has already moved
+            else{
+                //Scan the square the pawn is facing (i.e. White E4 pawn is facing E5 square)
+                let squareToCheck = `${pieceFile}${pieceRank + pawnDirection}`;
+                let squareExists = getSquareIndex(squareToCheck) != -1;
+
+                //If the square is empty, add it to possible moves array
+                if(squareExists && !board[getSquareIndex(squareToCheck)].piece){
+                    moves.push(squareToCheck);
+                }
+
+                //En Passant;
+                //Check if a double move has occured in the last game
+                if (board.doubleMove){
+                    
+                    //Check if it is the proper rank
+                    let doubleMoveRank = parseInt(board.doubleMove.substring(1, 2));
+                    let sameRank = pieceRank == doubleMoveRank;
+                    
+                    //Proper rank
+                    if (sameRank){
+
+                        //Check if it is the proper file:
+                        //The file the pawn has double-moved to
+                        let doubleMoveFile = board.doubleMove.substring(0, 1);
+
+                        //Loop twice and check if en-passant is possible
+                        let n = 1;
+                        for(let i = 0; i < 2; i++){
+
+                            let properFile = fileConverter('file', pieceFileNumber + n);
+
+                            //The ranks and files are proper for en passant, add the move
+                            if (doubleMoveFile == properFile){
+                                moves.push(properFile + (pieceRank + pawnDirection));
+                                break;
+                            }
+
+                            else{
+                                n *= -1;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            //Pawn capture system:
+            let diff = 1;
+
+            //Iterate over the two squares the pawn is defending, and check if they're taken by an enemy piece
+            for(let j = 0; j < 2; j++){
+
+                let file = fileConverter('file', pieceFileNumber + diff);
+                diff *= -1;
+
+                //If no such file exists, continue to the next iteration (i.e. A0)
+                if (file == -1){
+                    continue;
+                }
+                
+                let notation = file + (pieceRank + pawnDirection);
+
+                //The index of the square we're checking
+                let i = getSquareIndex(notation);
+                let squareExists = i != -1;
+
+                //If the square is taken by an enemy piece
+                if (squareExists && board[i].piece && board[i].piece.color != color){
+                    
+                    //Add it to the moves array
+                    moves.push(notation);                    
+                }
+            }
+        break;
+        //#endregion
+
+        //#region Knight
+        case 'knight':
+
+            //First file to check
+            let currFileNumber = pieceFileNumber - 2;
+
+            //Check all four possible files
+            for (let f = 0; f < 4; f++){
+
+                let currFile = fileConverter('file', currFileNumber);
+
+                //Check The two possible squares for the given file
+                for(let s = 0; s < 2; s++){
+
+                    let rankModifier;
+
+                    //Second and third iterations - check ranks on (pieceRank + 2) and (pieceRank - 2) 
+                    if (f == 1 || f == 2){
+                        rankModifier = 2;
+                    }
+
+                    //First and fourth iterations - check ranks on (pieceRank + 1) and (pieceRank - 1) 
+                    else{
+                        rankModifier = 1;
+                    }
+
+                    //If it is the first iteration
+                    if (s % 2 == 0){
+                        rankModifier *= -1;
+                    }
+
+                    let notation = currFile + (pieceRank + rankModifier);
+
+                    //If the square can be moved to(i.e. no ally piece on it)
+                    if (squareIsMoveable(notation, board, color)){
+
+                        moves.push(notation);
+                    }
+                }
+
+                //First and third iterations
+                if (f % 2 == 0){
+                    currFileNumber += 1;
+                }
+
+                //Second iteration
+                else{
+                    currFileNumber += 2;
+                }
+            }
+        break;
+        //#endregion
+
+        //#region Bishop
+        case 'bishop':
+
+            //Every bishop moves in 4 diagonal directions, check each of them
+            for(let i = 1; i <= 4; i++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+                
+                //Maximum diagonal travel distance is 7 squares - loop through them
+                for(let d = 0; d < 7; d++){
+
+                    //Decide the diagonal direction (uu/ud/du/dd)
+                    switch(i){
+                    
+                        //Up the files, up the ranks
+                        case 1:
+                        currFile += 1;
+                        currRank += 1;
+
+                    break;
+                        //Up the files, down the ranks
+                        case 2:
+                        currFile += 1;
+                        currRank -= 1;
+                            
+                    break;
+                        //Down the files, up the ranks
+                        case 3:
+                        currFile -= 1;
+                        currRank += 1;
+                            
+                    break;
+
+                        //Down the files, down the ranks
+                        case 4:
+                        currFile -= 1;
+                        currRank -= 1;
+                            
+                    break;
+                    }
+
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break(as it blocks the bishop)
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+
+                    //If not, break the loop, pieces cannot go through other pieces
+                    else break;
+                }
+            } 
+
+        break;
+        //#endregion
+
+        //#region Rook
+        case 'rook':
+
+            //Rooks can move in four different directions
+            for(let direction = 1; direction <= 4; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                //Maximum travel distance is 7, check each of the squares
+                for(let i = 1; i <= 7; i++){
+
+                    switch(direction){
+
+                        //Up the Files (left to right)
+                        case 1:
+                            currFile += 1;
+                        break;
+
+                        //Up the Ranks (bottom to top)
+                        case 2:
+                            currRank += 1;
+                        break;
+
+                        //Down the files (right to left)
+                        case 3:
+                            currFile -= 1;
+                        break;
+
+                        //Down the ranks (top to bottom)
+                        case 4:
+                            currRank -= 1;
+                        break;
+                    }
+
+                    //The square to check
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break - as it blocks movement
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+                    //If the square is blocked by an ally piece or the square doesn't exist - break
+                    else break;
+                }
+            }
+
+        break;
+
+        //#endregion
+
+        //#region Queen
+
+        case 'queen':
+
+            //The queen can move in 8 different directions
+            for (let direction = 1; direction <= 8; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                //Maximum number of steps is 7
+                for(let i = 1; i<= 7; i++){
+
+                    switch(direction){
+
+                        //Up the files(left to right)
+                        case 1:
+                            currFile += 1;
+                        break;
+
+                        //Down the files(right to left)
+                        case 2:
+                            currFile -= 1;
+                        break;
+
+                        //Up the ranks(bottom to top)
+                        case 3:
+                            currRank += 1;
+                        break;
+
+                        //Down the ranks(top to bottom)
+                        case 4:
+                            currRank -= 1;
+                        break;
+
+                        //Up the files + up the ranks (diagonal topright)
+                        case 5:
+                            currFile += 1;
+                            currRank += 1;
+                        break;
+
+                        //Up the files + down the ranks (diagonal bottomright)
+                        case 6:
+                            currFile += 1;
+                            currRank -= 1;
+
+                        break;
+
+                        //Down the files + up the ranks (diagonal topleft)
+                        case 7:
+                            currFile -= 1;
+                            currRank += 1;                    
+                        break;
+
+                        //Down the files + down the ranks (diagonal bottomleft)
+                        case 8:
+                            currFile -= 1;
+                            currRank -= 1;
+                        break;
+                    }
+
+                    //The square to check
+                    let notation = fileConverter('file', currFile) + currRank;
+
+                    //If the square is moveable, add it to the possible list of moves
+                    if (squareIsMoveable(notation, board, color)){                        
+
+                        moves.push(notation);
+
+                        //If the square has an enemy piece on it, break - as it blocks movement
+                        let i = getSquareIndex(notation);
+                        if (board[i].piece){
+                            break;
+                        }
+                    }
+
+                    //If the square is blocked by an ally piece or the square doesn't exist - break
+                    else break;
+
+                }
+            }
+
+        break;
+
+        //#endregion
+
+        //#region King
+
+        case 'king':
+
+            //The king can move in 8 different directions
+            for (let direction = 1; direction <= 8; direction++){
+
+                let currFile = pieceFileNumber;
+                let currRank = pieceRank;
+
+                switch(direction){
+
+                    //Up the files(left to right)
+                    case 1:
+                        currFile += 1;
+                    break;
+
+                    //Down the files(right to left)
+                    case 2:
+                        currFile -= 1;
+                    break;
+
+                    //Up the ranks(bottom to top)
+                    case 3:
+                        currRank += 1;
+                    break;
+
+                    //Down the ranks(top to bottom)
+                    case 4:
+                        currRank -= 1;
+                    break;
+
+                    //Up the files + up the ranks (diagonal topright)
+                    case 5:
+                        currFile += 1;
+                        currRank += 1;
+                    break;
+
+                    //Up the files + down the ranks (diagonal bottomright)
+                    case 6:
+                        currFile += 1;
+                        currRank -= 1;
+
+                    break;
+
+                    //Down the files + up the ranks (diagonal topleft)
+                    case 7:
+                        currFile -= 1;
+                        currRank += 1;                    
+                    break;
+
+                    //Down the files + down the ranks (diagonal bottomleft)
+                    case 8:
+                        currFile -= 1;
+                        currRank -= 1;
+                    break;
+                }
+
+                //The square to check
+                let notation = fileConverter('file', currFile) + currRank;
+
+                //If the square is moveable, add it to the possible list of moves
+                if (squareIsMoveable(notation, board, color)){
+                    moves.push(notation);
+                }
+            }
+
+        break;
+
+        //#endregion
+    }
+
+    return moves;
+}
+
+//Returns a list of moves without moves that can leave the king undefended (the piece is pinned)
+function deductPinMoves(piece, moves){
+
+    //Variables
+    let pieceIndex = getSquareIndex(piece);
+    let opponentColor = board[pieceIndex].piece.color == 'white' ? 'black' : 'white';
+    let pieceName = board[pieceIndex].piece.name;
+    let kingSquare = board[pieceIndex].piece.color == 'white' ? board.whiteKing : board.blackKing;
+    let movesClone = moves.slice(0);
+    
+    //Loop through the piece's moves
+    outerloop:
+    for (let i = 0; i < moves.length; i++){
+        
+        //Variables
+        let boardClone = JSON.parse(JSON.stringify(board)); //board's clone, used to avoid mutation
+        let moveIndex = getSquareIndex(moves[i]);
+
+        //Implement the move on the cloned board, and check if by moving the piece, the king might remain undefended
+
+        //Delete the piece (if exists) from the move's destination
+        delete boardClone[moveIndex].piece;
+
+        //Add the selected piece:
+        boardClone[moveIndex].piece = board[pieceIndex].piece;
+
+        //Delete the piece from the former position
+        delete boardClone[pieceIndex].piece;
+
+        //If the piece is a king - update the 'kingSquare' property
+        if (pieceName == 'king'){
+            kingSquare = moves[i];
+        }
+
+        //Loop through the boards squares and look for opponent pieces
+        for (let s = 0; s < board.length; s++){
+
+            //Enemy piece
+            if (boardClone[s].piece && boardClone[s].piece.color == opponentColor){
+                
+                let notation = boardClone[s].notation;
+                let opponentMoves = calculateMoves(notation, boardClone);
+            
+                //Loop through each possible move
+                for(let m = 0; m < opponentMoves.length; m++){
+
+                    //If after moving, an enemy piece can target the king, delete the move from the array
+                    if (opponentMoves[m] == kingSquare){
+
+                        movesClone.splice(movesClone.indexOf(moves[i]), 1);
+                        continue outerloop;
+                    }
+                }
+            }
+        }
+    }
+
+    return movesClone;
+}
+
+//Calculate if the given move will stop the check
+function legalCheckMove(kingSquare, move){
+
+    //Variables
+    let clone = JSON.parse(JSON.stringify(board)); //to prevent mutation
+    let fromIndex = getSquareIndex(move.from);
+    let toIndex = getSquareIndex(move.to);
+    let opponentColor = clone[fromIndex].piece.color == 'black' ? 'white' : 'black';
+    let pieceName = clone[fromIndex].piece.name;
+
+    //Move the piece to the new square
+    clone[toIndex].piece = clone[fromIndex].piece;
+
+    //Remove the piece from the former location
+    delete clone[fromIndex].piece;
+
+    //If moving the king, update the 'kingSquare' property
+    if (pieceName == 'king'){
+
+        kingSquare = clone[toIndex].notation;
+
+        //White player
+        if (opponentColor == 'black'){
+            clone.whiteKing = clone[toIndex].notation;
+        }
+
+        //Black player
+        else{
+            clone.blackKing = clone[toIndex].notation;
+        }
+    }
+
+    //Loop through squares on the board
+    for(let i = 0; i < clone.length; i++){
+
+        //If enemy piece
+        if (clone[i].piece && clone[i].piece.color == opponentColor){
+
+            let notation = clone[i].notation;
+            let moves = calculateMoves(notation, clone);
+            
+            //Loop through each possible move
+            for(let m = 0; m < moves.length; m++){
+
+                //The move is illegal while in check, return false
+                if (moves[m] == kingSquare){
+                    return false;
+                }
+            }
+        }
+    }
+
+    //The move is legal while checked
+    return true;
+}
+
+//#endregion
 
 //#endregion
 
@@ -471,9 +1196,12 @@ function onSquare(){
 
             //The square's notation
             let notation = e.target.id;
+            let move = {
+                from: selectedPiece,
+                to: notation
+            };
 
-            //Update the server
-            client.emit('move', notation);
+            implementMove(move);
         }       
     });
 
@@ -491,7 +1219,7 @@ function onSquare(){
         //Client's piece
         if (pieceColor == 'black' && black || pieceColor == 'white' && !black){
 
-            //Disselect the currently selected piece, and select the new one
+            //Select the clicked piece
             selectPiece(squareNotation, true);
         }
 
@@ -506,18 +1234,25 @@ function onSquare(){
 
                 //The square's notation
                 let notation = e.target.parentNode.id;
+                let move = {
+                    from: selectedPiece,
+                    to: notation
+                };
 
                 //Update the server
-                client.emit('move', notation);
+                implementMove(move);
             }
         }
     });
 }
 
-//Selects a piece - toggle image background and emit to server asking for legal moves
+//#endregion
+
+//#region Piece selection
+
 function selectPiece(notation, select){
 
-    //#region Visual effects
+    //#region Aesthetics
 
     //Variables for easier reference
     let td = $(`#${notation}`);
@@ -568,22 +1303,162 @@ function selectPiece(notation, select){
         }
 
         //Disable moveable squares
-        for(let i = 0; i < legalMoves.length; i++){
-            $(`#${legalMoves[i]}`).toggleClass('moveable', false);
-        }
-
+        $(`.moveable`).toggleClass('moveable', false);
         selectedPiece = undefined;
+        return;
     }
 
     //#endregion
 
-    //#region Emission
+    //#region Get possible moves
 
-    //Ask the server for legal moves
+    selectedPiece = notation;
+    let possibleMoves = getPossibleMoves(notation);
 
-    client.emit('select', notation);
+    //Toggle each one of the possible moves to 'moveable'
+    for(let i = 0; i < possibleMoves.length; i++){
+        $(`#${possibleMoves[i]}`).toggleClass('moveable', true);
+    }
 
     //#endregion
 
 }
+
+//#endregion
+
+//#region Implement part II
+function implement2(move)
+
+    //Variables
+    let formerPosition = move.from;
+    let formerIndex = getSquareIndex(formerPosition);
+    let newIndex = getSquareIndex(move.to);
+    let piece = board[formerIndex].piece;
+    let clientColor = black ? 'black' : 'white';
+
+    //Disable en passant opportunity if not used immediately
+    delete board.doubleMove; 
+
+    //#region Specific Pieces
+
+    if (piece.name == 'pawn'){
+
+        let formerFile = formerPosition.substring(0, 1);
+        let newFile = newPosition.substring(0, 1);
+        let movedFiles = formerFile != newFile;
+
+        let formerRank = formerPosition.substring(1, 2);
+        let newRank = newPosition.substring(1, 2);
+        let movedTwice = Math.abs(formerRank - newRank) == 2;
+
+        //If the pawn just moved twice, mark that as a property
+        if (movedTwice){
+            board.doubleMove = newPosition;
+        }
+
+        //If the pawn moved between files, to an empty square - En passant was executed
+        else if(board[newIndex].piece == undefined && movedFiles){
+
+            //Remove the captured piece from the board on (newFile, oldRank)
+            let i = getSquareIndex(newFile + formerRank);
+            delete board[i].piece;
+        }
+
+        //Promotion
+        else if(newRank == 1 || newRank == 8){
+
+            //Set as queen (might do knight rook bishop later)
+            board[formerIndex].piece.name = 'queen';
+        }
+    }
+
+    //King moved - update it's location
+    else if (piece.name == 'king'){
+
+        //White king
+        if (clientColor == 'white'){
+            board.whiteKing = newPosition;
+        }
+
+        //Black king
+        else{
+            board.blackKing = newPosition;
+        }
+    }
+
+    //#endregion
+
+    //Change the piece's 'moved' property to true
+    board[formerIndex].piece.moved = true;
+
+    //Update piece's new position
+    board[newIndex].piece = board[formerIndex].piece;
+
+    //Remove the piece from it's former position
+    delete board[formerIndex].piece;
+
+    //#region Checks
+
+    //Set the board as not checked, from the previous move
+    delete board.check;
+
+    //After a move is made, check whether the opponent's king is checked - scan all squares
+    for (let s = 0; s < board.length; s++){
+
+        //If it is the client's piece
+        if (board[s].piece && board[s].piece.color == clientColor){
+
+            //Get an array of possible moves
+            let moves = calculateMoves(board[s].notation.name, board);
+
+            //Loop through all moves and check if the king is checked
+            for(let i = 0; i < moves.length; i++){
+
+                let index = getSquareIndex(moves[i]);
+                
+                if (board[index].piece && board[index].piece.name == 'king'){
+                    board.check = moves[i];
+                    break;
+                }
+            }
+        }
+    }
+    
+    //Check for checkmate
+    if (board.check){
+
+        //Loop through all board squares
+        outerloop:
+        for (let i = 0; i < board.length; i++){
+
+            //Scan for enemy pieces
+            if (board[i].piece && board[i].piece.color != client.color){
+
+                let moves = calculateMoves(board[i].notation.name, board);
+                let move = {
+                    from: board[i].notation.name,
+                    to: undefined
+                };
+
+                //Iterate through every move and check if valid
+                for (let m = 0; m < moves.length; m++){
+
+                    move.to = moves[m];
+
+                    //If it is a valid check move, break the loop, not checkmate
+                    if (legalCheckMove(board.check, move, board)){
+                        break outerloop;
+                    }
+                }
+            }
+
+            //Last iteration and didn't break, checkmate
+            if (i == 63){
+                server.to(client.matchID).emit('gameOver', client.color);
+            }
+        }
+    }
+
+    //#endregion
+
 //#endregion
