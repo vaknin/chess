@@ -954,7 +954,6 @@ function deductPinMoves(piece, moves){
                 
                 let notation = boardClone[s].notation;
                 let opponentMoves = calculateMoves(notation, boardClone);
-                if (boardClone[s].piece.name == 'queen')
             
                 //Loop through each possible move
                 for(let m = 0; m < opponentMoves.length; m++){
@@ -962,6 +961,7 @@ function deductPinMoves(piece, moves){
                     //If after moving, an enemy piece can target the king, delete the move from the array
                     if (opponentMoves[m] == kingSquare){
 
+                        //Remove the move, break and move on to the next move
                         movesClone.splice(movesClone.indexOf(moves[i]), 1);
                         continue outerloop;
                     }
