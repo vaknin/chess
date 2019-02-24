@@ -1372,7 +1372,7 @@ function implementMove(move){
         //Loop through all board squares - check for checkmate
         for (let i = 0; i < board.length; i++){
 
-            if (board[i].piece && board[i].piece.color == !attackerColor){
+            if (board[i].piece && board[i].piece.color != attackerColor){
                 
                 //Get possible moves for the piece, if there are possible moves, break
                 let moves = getPossibleMoves(board[i].notation);
