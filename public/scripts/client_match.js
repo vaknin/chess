@@ -340,153 +340,6 @@ function fileConverter(mode, arg){
     return -1;
 }
 
-//This function is in charge of: 1)Images 2)Sounds 3)Update values 4)Check for checks & mates 5)Communicate with the server
-function implementMove(move){
-
-    //#region Variables
-    let disableDefaultSound = false;
-    let color = black ? 'black' : 'white';
-    let img = $($(`#${move.from}`)[0].children[0]);
-    let underscoreIndex = img[0].src.indexOf('_');
-    let periodIndex = img[0].src.lastIndexOf('.');
-    let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
-    let destination = $($(`#${move.to}`)[0]);
-    let squareToCheck = $(`#${move.to}`)[0];
-    let moveToEmptySquare = squareToCheck.children.length == 0;
-
-    //#endregion
-
-    //#region Update Values
-
-    //Remove the former piece from the destination square
-    delete board[getSquareIndex(move.to)].piece;
-
-    //Add the new piece 
-    board[getSquareIndex(move.to)].piece = board[getSquareIndex(move.from)].piece;
-
-    //Remove the piece from it's former position
-    delete board[getSquareIndex(move.from)].piece;
-
-    //#endregion
-
-    //#region Aesthetics
-
-    //End turn
-    if (turn){
-
-        //Change document's title
-        document.title = 'Opponent\'s turn..';
-
-        //Disable pointer cursor on piece hover
-        $('.moveable').toggleClass('moveable', false);
-        $('.clickable').toggleClass('clickable', false);
-
-        //Toggle off selection effects
-        selectPiece(selectedPiece, false);
-    }
-
-    //Start turn
-    else{
-
-        //Change document's title
-        document.title = 'Your turn!';
-
-        //Set pieces pointer cursor for his own pieces on hover
-        $(`.${color}`).toggleClass('clickable', true);
-    }
-
-    //#endregion
-
-    //#region Handle special moves
-
-    switch(pieceName){
-
-        //Pawns
-        case 'pawn':
-            let oldFile = move.from.substring(0, 1);
-            let newFile = move.to.substring(0, 1);
-
-            let oldRank = move.from.substring(1, 2);
-            let newRank = move.to.substring(1, 2);
-
-
-            //En passant
-            if (oldFile != newFile && moveToEmptySquare){
-                
-                $(`#${newFile + oldRank}`)[0].children[0].remove();
-
-                //Play piece capture sound
-                captureSound.play();
-                disableDefaultSound = true;
-            }
-
-            //Pawn promotion
-            else if(newRank == 1 || newRank == 8){
-                
-                let queenColor = color;
-
-                //Get the proper promotion color
-                if (!turn){
-                    queenColor = black ? 'white' : 'black';
-                }
-                img[0].src = `../images/pieces/${queenColor}_queen.png`;
-            }
-        break;
-    }
-
-    //#endregion
-    
-    //#region Images & Sounds
-
-    //On piece capture
-    if (!moveToEmptySquare){
-
-        //Remove it's image
-        squareToCheck.children[0].remove();
-
-        //Play capture sound
-        if (!disableDefaultSound){
-            captureSound.play();
-        }
-    }
-
-    //On piece movement
-    else if (!disableDefaultSound){
-
-        //Play piece movement sound
-        moveSound.play();
-    }
-
-    //Update the piece image location
-    img.appendTo(destination);
-
-    //#endregion
-    
-    //#region Checks and Checkmates
-
-    //If the king is checked - toggle red border for the king
-    if (board.inCheck){
-
-        //Get the king piece as a variable
-        let king = $(`#${board.inCheck}`);
-        king.toggleClass('checked', true);
-    }
-
-    //Remove red border if exists
-    else{
-        $('.checked').toggleClass('checked', false);
-    }
-    //#endregion
-
-    //Emit to server
-    if (turn){
-        client.emit('move', move);
-    }
-
-    turn = !turn;
-
-}
-
 //#endregion
 
 //#region Server communication
@@ -521,7 +374,6 @@ client.on('move', move => {
 
 client.on('gameOver', winner => {
 
-    alert(`${winner} wins!`);
 });
 
 //Connects the client to the server via socket.io
@@ -572,15 +424,17 @@ function getSquareIndex(notation){
 //calculateMoves -> deductPinMoves -> (if check) -> legalCheckMove
 function getPossibleMoves(notation){
 
-    let moves = calculateMoves(notation);
-    moves = deductPinMoves(notation, moves);
     let pieceName = board[getSquareIndex(notation)].piece.name;
+    let moves = calculateMoves(notation, board);
+
+    moves = deductPinMoves(notation, moves);
 
     //Deduct illegal check moves
     if (board.inCheck || pieceName == 'king'){
         
         let movesClone = moves.slice(0);
         let from = notation;
+        let kingSquare = black ? board.blackKing : board.whiteKing;
         
         //Loop through each move in the moves array and check if it is valid
         for (let i = 0; i < moves.length; i++){
@@ -591,10 +445,10 @@ function getPossibleMoves(notation){
                 to: to
             };
 
+            
             //If the square is not legal
-            if(!legalCheckMove(board.inCheck, move)){
+            if(!legalCheckMove(kingSquare, move)){
 
-                //Remove it
                 movesClone.splice(movesClone.indexOf(move.to), 1);
             }
         }
@@ -608,7 +462,7 @@ function getPossibleMoves(notation){
 }
 
 //Returns an array of possible moves for the selected piece
-function calculateMoves(notation){
+function calculateMoves(notation, board){
 
     //Variables
     let moves = [];
@@ -1100,6 +954,7 @@ function deductPinMoves(piece, moves){
                 
                 let notation = boardClone[s].notation;
                 let opponentMoves = calculateMoves(notation, boardClone);
+                if (boardClone[s].piece.name == 'queen')
             
                 //Loop through each possible move
                 for(let m = 0; m < opponentMoves.length; m++){
@@ -1151,7 +1006,7 @@ function legalCheckMove(kingSquare, move){
     }
 
     //Loop through squares on the board
-    for(let i = 0; i < clone.length; i++){
+    for(let i = 0; i < board.length; i++){
 
         //If enemy piece
         if (clone[i].piece && clone[i].piece.color == opponentColor){
@@ -1326,90 +1181,173 @@ function selectPiece(notation, select){
 
 //#endregion
 
-//#region Implement part II
-function implement2(move)
+//#region Move implementation
 
-    //Variables
-    let formerPosition = move.from;
-    let formerIndex = getSquareIndex(formerPosition);
-    let newIndex = getSquareIndex(move.to);
-    let piece = board[formerIndex].piece;
-    let clientColor = black ? 'black' : 'white';
+//This function is in charge of: 1)Images 2)Sounds 3)Update values 4)Check for checks & mates 5)Communicate with the server
+//It is called after a move is executed
+function implementMove(move){
 
-    //Disable en passant opportunity if not used immediately
-    delete board.doubleMove; 
-
-    //#region Specific Pieces
-
-    if (piece.name == 'pawn'){
-
-        let formerFile = formerPosition.substring(0, 1);
-        let newFile = newPosition.substring(0, 1);
-        let movedFiles = formerFile != newFile;
-
-        let formerRank = formerPosition.substring(1, 2);
-        let newRank = newPosition.substring(1, 2);
-        let movedTwice = Math.abs(formerRank - newRank) == 2;
-
-        //If the pawn just moved twice, mark that as a property
-        if (movedTwice){
-            board.doubleMove = newPosition;
-        }
-
-        //If the pawn moved between files, to an empty square - En passant was executed
-        else if(board[newIndex].piece == undefined && movedFiles){
-
-            //Remove the captured piece from the board on (newFile, oldRank)
-            let i = getSquareIndex(newFile + formerRank);
-            delete board[i].piece;
-        }
-
-        //Promotion
-        else if(newRank == 1 || newRank == 8){
-
-            //Set as queen (might do knight rook bishop later)
-            board[formerIndex].piece.name = 'queen';
-        }
-    }
-
-    //King moved - update it's location
-    else if (piece.name == 'king'){
-
-        //White king
-        if (clientColor == 'white'){
-            board.whiteKing = newPosition;
-        }
-
-        //Black king
-        else{
-            board.blackKing = newPosition;
-        }
-    }
+    //#region Variables    
+    let formerIndex = getSquareIndex(move.from);
+    let color = black ? 'black' : 'white';
+    let attackerColor = turn && black || !turn && !black? 'black' : 'white'; 
+    let img = $($(`#${move.from}`)[0].children[0]);
+    let underscoreIndex = img[0].src.indexOf('_');
+    let periodIndex = img[0].src.lastIndexOf('.');
+    let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
+    let destination = $(`#${move.to}`)[0];
+    let moveToEmptySquare = destination.children.length == 0;
+    let disableDefaultSound = false;
 
     //#endregion
+
+    //#region Update Values
 
     //Change the piece's 'moved' property to true
     board[formerIndex].piece.moved = true;
 
-    //Update piece's new position
-    board[newIndex].piece = board[formerIndex].piece;
-
-    //Remove the piece from it's former position
-    delete board[formerIndex].piece;
-
-    //#region Checks
+    //Toggle off selection effects
+    selectPiece(selectedPiece, false);
 
     //Set the board as not checked, from the previous move
-    delete board.check;
+    board.inCheck = false;
 
-    //After a move is made, check whether the opponent's king is checked - scan all squares
+    //Disable en passant opportunity if not used immediately
+    delete board.doubleMove; 
+
+    //Remove the piece(if exists) from the destination square
+    delete board[getSquareIndex(move.to)].piece;
+
+    //Add the new piece to the destination square
+    board[getSquareIndex(move.to)].piece = board[getSquareIndex(move.from)].piece;
+
+    //Remove the piece from it's former position
+    delete board[getSquareIndex(move.from)].piece;
+
+
+    //#endregion
+
+    //#region Handle special moves
+
+    switch(pieceName){
+
+        //Pawns
+        case 'pawn':
+
+            //Variables
+            let formerFile = move.from.substring(0, 1);
+            let newFile = move.to.substring(0, 1);
+            let formerRank = move.from.substring(1, 2);
+            let newRank = move.to.substring(1, 2);
+            let movedFiles = formerFile != newFile;
+            let movedTwice = Math.abs(formerRank - newRank) == 2;
+
+            //If the pawn just moved twice, mark that as a property
+            if (movedTwice){
+                board.doubleMove = move.to;
+            }
+
+            //En passant
+            else if(moveToEmptySquare && movedFiles){
+
+                //Remove the captured piece from the board on (newFile, formerRank)
+                let i = getSquareIndex(newFile + formerRank);
+                delete board[i].piece;
+
+                $(`#${newFile + formerRank}`)[0].children[0].remove();
+
+                //Play piece capture sound
+                captureSound.play();
+                disableDefaultSound = true;
+            }
+
+            //Promotion
+            else if(newRank == 1 || newRank == 8){
+                
+                let queenColor = color;
+
+                //Get the proper promotion color
+                if (!turn){
+                    queenColor = black ? 'white' : 'black';
+                }
+                img[0].src = `../images/pieces/${queenColor}_queen.png`;
+
+                board[formerIndex].piece.name = 'queen';
+            }
+        break;
+
+        case 'king':
+            //White king
+            if (color == 'white'){
+                board.whiteKing = move.to;
+            }
+
+            //Black king
+            else{
+                board.blackKing = move.to;
+            }
+        break;
+    }
+
+    //#endregion
+    
+    //#region Visuals & Sounds
+
+     //End turn
+     if (turn){
+
+        //Change document's title
+        document.title = 'Opponent\'s turn..';
+
+        //Disable pointer cursor on piece hover
+        $('.moveable').toggleClass('moveable', false);
+        $('.clickable').toggleClass('clickable', false);
+    }
+
+    //Start turn
+    else{
+
+        //Change document's title
+        document.title = 'Your turn!';
+
+        //Set pieces pointer cursor for his own pieces on hover
+        $(`.${color}`).toggleClass('clickable', true);
+    }
+
+    //On piece capture
+    if (!moveToEmptySquare){
+
+        //Remove it's image
+        destination.children[0].remove();
+
+        //Play capture sound
+        if (!disableDefaultSound){
+            captureSound.play();
+        }
+    }
+
+    //On piece movement
+    else if (!disableDefaultSound){
+
+        //Play piece movement sound
+        moveSound.play();
+    }
+
+    //Update the piece image location
+    img.appendTo($(destination));
+
+    //#endregion
+    
+    //#region Checks and Checkmates
+
+    //After a move is made, check whether a king is checked - scan all squares
     for (let s = 0; s < board.length; s++){
 
-        //If it is the client's piece
-        if (board[s].piece && board[s].piece.color == clientColor){
+        //If the square has a piece, and the piece's client just played the turn
+        if (board[s].piece && board[s].piece.color == attackerColor){
 
             //Get an array of possible moves
-            let moves = calculateMoves(board[s].notation.name, board);
+            let moves = getPossibleMoves(board[s].notation);
 
             //Loop through all moves and check if the king is checked
             for(let i = 0; i < moves.length; i++){
@@ -1417,48 +1355,51 @@ function implement2(move)
                 let index = getSquareIndex(moves[i]);
                 
                 if (board[index].piece && board[index].piece.name == 'king'){
-                    board.check = moves[i];
+                    board.inCheck = moves[i];
                     break;
                 }
             }
         }
     }
     
-    //Check for checkmate
-    if (board.check){
+    //If checked - mark king as checked and check for checkmate
+    if (board.inCheck){
 
-        //Loop through all board squares
-        outerloop:
+        //Set red border
+        let king = $(`#${board.inCheck}`);
+        king.toggleClass('checked', true);
+
+        //Loop through all board squares - check for checkmate
         for (let i = 0; i < board.length; i++){
 
-            //Scan for enemy pieces
-            if (board[i].piece && board[i].piece.color != client.color){
-
-                let moves = calculateMoves(board[i].notation.name, board);
-                let move = {
-                    from: board[i].notation.name,
-                    to: undefined
-                };
-
-                //Iterate through every move and check if valid
-                for (let m = 0; m < moves.length; m++){
-
-                    move.to = moves[m];
-
-                    //If it is a valid check move, break the loop, not checkmate
-                    if (legalCheckMove(board.check, move, board)){
-                        break outerloop;
-                    }
+            if (board[i].piece && board[i].piece.color == !attackerColor){
+                
+                //Get possible moves for the piece, if there are possible moves, break
+                let moves = getPossibleMoves(board[i].notation);
+                if (moves.length > 0){
+                    break;
                 }
             }
 
             //Last iteration and didn't break, checkmate
             if (i == 63){
-                server.to(client.matchID).emit('gameOver', client.color);
+                alert('checkmate');
             }
         }
     }
 
+    //Remove red border if exists
+    else{
+        $('.checked').toggleClass('checked', false);
+    }
     //#endregion
+
+    //Update server
+    if (turn){
+        client.emit('move', move);
+    }
+
+    turn = !turn;
+}
 
 //#endregion
