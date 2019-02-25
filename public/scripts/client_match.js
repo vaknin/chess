@@ -419,22 +419,31 @@ function getSquareIndex(notation){
     return -1;
 }
 
-//#region Populate moves array
-
 //calculateMoves -> deductPinMoves -> (if check) -> legalCheckMove
 function getPossibleMoves(notation){
 
     let pieceName = board[getSquareIndex(notation)].piece.name;
     let moves = calculateMoves(notation, board);
-
+    
     moves = deductPinMoves(notation, moves);
 
     //Deduct illegal check moves
     if (board.inCheck || pieceName == 'king'){
         
+        console.log('lol');
+        
         let movesClone = moves.slice(0);
         let from = notation;
-        let kingSquare = black ? board.blackKing : board.whiteKing;
+        let kingSquare;
+
+        if (turn){
+
+            kingSquare = black ? board.whiteKing : board.blackKing;
+        }
+
+        else{
+            kingSquare = black ? board.blackKing : board.whiteKing;
+        }
         
         //Loop through each move in the moves array and check if it is valid
         for (let i = 0; i < moves.length; i++){
@@ -458,7 +467,6 @@ function getPossibleMoves(notation){
     }
 
     return moves;
-
 }
 
 //Returns an array of possible moves for the selected piece
@@ -917,9 +925,10 @@ function deductPinMoves(piece, moves){
 
     //Variables
     let pieceIndex = getSquareIndex(piece);
-    let opponentColor = board[pieceIndex].piece.color == 'white' ? 'black' : 'white';
+    let opponentColor = black ? 'white' : 'black';
+    let pieceColor = board[pieceIndex].piece.color;
     let pieceName = board[pieceIndex].piece.name;
-    let kingSquare = board[pieceIndex].piece.color == 'white' ? board.whiteKing : board.blackKing;
+    let kingSquare;
     let movesClone = moves.slice(0);
     
     //Loop through the piece's moves
@@ -927,6 +936,7 @@ function deductPinMoves(piece, moves){
     for (let i = 0; i < moves.length; i++){
         
         //Variables
+        kingSquare = black ? board.blackKing : board.whiteKing;
         let boardClone = JSON.parse(JSON.stringify(board)); //board's clone, used to avoid mutation
         let moveIndex = getSquareIndex(moves[i]);
 
@@ -942,7 +952,7 @@ function deductPinMoves(piece, moves){
         delete boardClone[pieceIndex].piece;
 
         //If the piece is a king - update the 'kingSquare' property
-        if (pieceName == 'king'){
+        if (pieceName == 'king' && pieceColor != opponentColor){
             kingSquare = moves[i];
         }
 
@@ -1028,8 +1038,6 @@ function legalCheckMove(kingSquare, move){
     //The move is legal while checked
     return true;
 }
-
-//#endregion
 
 //#endregion
 
@@ -1189,12 +1197,12 @@ function implementMove(move){
 
     //#region Variables    
     let formerIndex = getSquareIndex(move.from);
+    let newIndex = getSquareIndex(move.to);
     let color = black ? 'black' : 'white';
+    let pieceName = board[formerIndex].piece.name;
+    let pieceColor = board[formerIndex].piece.color;
     let attackerColor = turn && black || !turn && !black? 'black' : 'white'; 
     let img = $($(`#${move.from}`)[0].children[0]);
-    let underscoreIndex = img[0].src.indexOf('_');
-    let periodIndex = img[0].src.lastIndexOf('.');
-    let pieceName = img[0].src.substring(underscoreIndex + 1, periodIndex);
     let destination = $(`#${move.to}`)[0];
     let moveToEmptySquare = destination.children.length == 0;
     let disableDefaultSound = false;
@@ -1216,10 +1224,10 @@ function implementMove(move){
     delete board.doubleMove; 
 
     //Remove the piece(if exists) from the destination square
-    delete board[getSquareIndex(move.to)].piece;
+    delete board[newIndex].piece;
 
     //Add the new piece to the destination square
-    board[getSquareIndex(move.to)].piece = board[getSquareIndex(move.from)].piece;
+    board[newIndex].piece = board[getSquareIndex(move.from)].piece;
 
     //Remove the piece from it's former position
     delete board[getSquareIndex(move.from)].piece;
@@ -1264,21 +1272,19 @@ function implementMove(move){
             //Promotion
             else if(newRank == 1 || newRank == 8){
                 
-                let queenColor = color;
-
                 //Get the proper promotion color
                 if (!turn){
                     queenColor = black ? 'white' : 'black';
                 }
-                img[0].src = `../images/pieces/${queenColor}_queen.png`;
+                img[0].src = `../images/pieces/${pieceColor}_queen.png`;
 
-                board[formerIndex].piece.name = 'queen';
+                board[newIndex].piece.name = 'queen';
             }
         break;
 
         case 'king':
             //White king
-            if (color == 'white'){
+            if (pieceColor == 'white'){
                 board.whiteKing = move.to;
             }
 
@@ -1347,7 +1353,7 @@ function implementMove(move){
         if (board[s].piece && board[s].piece.color == attackerColor){
 
             //Get an array of possible moves
-            let moves = getPossibleMoves(board[s].notation);
+            let moves = calculateMoves(board[s].notation, board);
 
             //Loop through all moves and check if the king is checked
             for(let i = 0; i < moves.length; i++){
@@ -1377,6 +1383,8 @@ function implementMove(move){
                 //Get possible moves for the piece, if there are possible moves, break
                 let moves = getPossibleMoves(board[i].notation);
                 if (moves.length > 0){
+                    console.log(`${board[i].piece.color} ${board[i].piece.name} with: ${moves}`);
+                    
                     break;
                 }
             }
