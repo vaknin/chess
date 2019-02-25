@@ -468,7 +468,7 @@ function pieceCanCastle(rookNotation, square){
             for(let m = 0; m < opponentMoves.length; m++){
 
                 //If after moving, an enemy piece can target the king, castling isn't allowed
-                if (opponentMoves[m] == kingSquare){
+                if (opponentMoves[m] == kingNewPos){
                     kingSquare.piece = board[newPosIndex].piece;
                     delete board[newPosIndex].piece;
                     return false;
