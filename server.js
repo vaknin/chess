@@ -78,6 +78,11 @@ server.on('connection', client => {
         client.to(client.matchID).broadcast.emit('move', move);
     });
 
+    //Chat system
+    client.on('message', msg => {
+        client.to(client.matchID).broadcast.emit('message', msg);
+    });
+
     //#endregion
 });
 

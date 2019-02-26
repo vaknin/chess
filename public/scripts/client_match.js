@@ -60,7 +60,7 @@ async function initializeBoard(){
     //Build the board, and add pieces on top on the squares, also add on-click listeners
     buildBoard();
     addPieces();
-    onSquare();
+    onClickPress();
 
     //Flip 180 degs
     if (black){
@@ -381,6 +381,11 @@ client.on('move', move => {
 
 client.on('gameOver', winner => {
 
+});
+
+client.on('message', msg => {
+
+    $('#messages').append($('<li>').text(`Opponent: ${msg}`));
 });
 
 //Connects the client to the server via socket.io
@@ -1188,10 +1193,10 @@ function legalCheckMove(kingSquare, move){
 
 //#endregion
 
-//#region Square onClick & Hover
+//#region Unit selection and Chat system
 
 //After creating the board, call this function to add all the onClick listeners to them
-function onSquare(){
+function onClickPress(){
 
     //Click on a square
     $('td').on('click', (e) => {
@@ -1286,6 +1291,24 @@ function onSquare(){
 
                 //Update the server
                 implementMove(move);
+            }
+        }
+    });
+
+    //Chat
+    $(document).on('keydown', e => {
+        
+        //Enter key is pressed and the input is focused
+        if (e.which == 13 && $('#input').is(':focus')){
+
+            //Variables:
+            let msg = $('#input').val();
+
+            //Message isn't empty
+            if (msg.replace(' ', '') != ''){
+                client.emit('message', msg);
+                $('#messages').append($('<li>').text(`You: ${msg}`));
+                $('#input').val('');
             }
         }
     });
