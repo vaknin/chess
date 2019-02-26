@@ -16,8 +16,6 @@
 /*#region Mobile*/
 @media(max-width:500px){
 
-    
-
     /*#region Home Page*/
     #rooms{
         position: relative;
@@ -54,7 +52,7 @@
     /*#region Create a room*/
     #create-room-container{
         position: fixed;
-        display: flex;
+        display: none;
         flex-direction: column;
         background: #333;
         width: 90%;
