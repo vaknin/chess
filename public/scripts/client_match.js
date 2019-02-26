@@ -386,6 +386,7 @@ client.on('gameOver', winner => {
 client.on('message', msg => {
 
     $('#messages').append($('<li>').text(`Opponent: ${msg}`));
+    $('#messages').scrollTop($(document).height() * 1000);
 });
 
 //Connects the client to the server via socket.io
@@ -1309,6 +1310,7 @@ function onClickPress(){
                 client.emit('message', msg);
                 $('#messages').append($('<li>').text(`You: ${msg}`));
                 $('#input').val('');
+                $('#messages').scrollTop($(document).height() * 1000);
             }
         }
     });
@@ -1635,7 +1637,8 @@ function implementMove(move){
 
             //Last iteration and didn't break, checkmate
             if (i == 63){
-                alert('checkmate');
+                $('#messages').append($('<li>').text(`Checkmate!`));
+                $('#messages').scrollTop($(document).height() * 1000);
             }
         }
     }

@@ -37,6 +37,11 @@ server.on('connection', client => {
 
     //#region Lobby
 
+    //The client has created a room, the room object contains the room's name, password and time per player
+    client.on('createRoom', room => {
+        
+    });
+
     //The client is searching for an opponent 
     client.on('searching', () => searchForOpponent(client));
 

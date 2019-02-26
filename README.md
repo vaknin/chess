@@ -3,13 +3,10 @@
 Made using socket.io & express
 
 Todo:
--castling
--visual aid
+-Users & Rooms
+-visual aid?
 -chat system
--work on aesthetics
--better promotion system
 -landing page
--users system & elo
 
 The general client-server workflow:
 

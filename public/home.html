@@ -8,8 +8,55 @@
     <title>Chess</title>
 </head>
 <body>
-    <button class="button_findMatch" onclick="findMatch()">
-        Find an Opponent
+
+    <div id="create-room-container">
+        <!-- Name -->
+        <div id="name">
+            <input type="text" id="input_roomName">
+            <label id="label-name" for="input_roomName">Name: </label>
+        </div>
+
+        <!-- Timer per move -->
+        <div id="time">
+            <label id="label-time">Time: </label>
+
+            <div>
+                <input type="radio" name="timeRadios" id="radio_unlimited" value="unlimited" checked='checked'>
+                <label for="radio_unlimited">∞</label>
+            </div>
+            <div>
+                <input type="radio" name="timeRadios" id="radio_3min" value="3">
+                <label for="radio_3min">3</label>
+            </div>
+            <div>
+                <input type="radio" name="timeRadios" id="radio_5min" value="5">
+                <label for="radio_5min">5</label>
+            </div>
+            <div>
+                <input type="radio" name="timeRadios" id="radio_10min" value="10">
+                <label for="radio_10min">10</label>
+            </div>
+        </div>
+
+        <!-- Room password -->
+        <div id="password">
+            <label id="label-password" for="input_roomPassword">Password: </label>
+            <input type="checkbox" id="cbox_hasPassword">
+            <input type="text" id="input_roomPassword" disabled='disabled'>
+        </div>
+        
+        <!-- Create/Cancel buttons -->
+        <div id="container-cancel-create">
+            <button class= "button" id="btn_create">Create</button>
+            <button class= "button" id="btn_cancel">Cancel</button>
+        </div>
+    </div>
+
+    <ul id="rooms">
+    </ul>
+
+    <button class= "button" id="btn_createRoom">
+        Create a Room
     </button>
 
     <!--SCRIPTS-->

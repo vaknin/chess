@@ -1,27 +1,123 @@
-body{
-    background-color: #fff(136, 102, 60);
+@import url('https://fonts.googleapis.com/css?family=Roboto');
 
+* {
+    margin:0;
+    padding:0;  
+    background: #888;
+    font-family: 'Roboto', sans-serif;
 }
 
-body *{
-    margin: 0;
-    padding: 0;
-    font-family: Arial, Helvetica, sans-serif;
+#create-room-container{
+    display: none;
 }
 
-.button_findMatch{
-    position: fixed;
-    left: 40%;
-    top:45%;
-    border: 0;
-    border-radius: 3px;
-    background-color: rgb(100, 100, 100);
-    padding: 6px 10px;
-    font-size: 2rem;
-    cursor: pointer;
-    transition: background-color 1s ease;
-}
+/*#region Desktop*/
 
-.button_findMatch:hover{
-    background-color: rgb(135, 135, 135);
+/*#region Mobile*/
+@media(max-width:500px){
+
+    
+
+    /*#region Home Page*/
+    #rooms{
+        position: relative;
+        list-style-type: none;
+        text-align: center;
+        top: 0;
+        height: 84vh;
+        width: 100%;
+        overflow: auto;
+    }
+
+    #rooms li:nth-child(even){
+        background: #777;
+    }
+
+    #rooms li{
+        border-bottom: 1px solid black;
+        padding: 1.75rem;
+    }
+
+    #btn_createRoom{
+        position: fixed;
+        height: 16%;
+        width: 90%;
+        left: 5%;
+        bottom: 2%;
+        font-size: 2rem;
+    }
+
+    /*#endregion*/
+
+    /*#region Create a room*/
+    #create-room-container{
+        position: fixed;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: #333;
+        width: 80%;
+        height: 70vh;
+        top: 10%;
+        border-radius: 15px;
+        left: 9%;
+        z-index: 1;
+        text-align: center;
+        background: rgba(71, 71, 71);
+        font-size: 1.2rem;
+    }
+
+    input{
+        margin-top: 0.4rem;
+    }
+
+    #name, #time, #password{
+        width: 85%;
+        background: none;
+        margin-bottom: 2rem;
+    }
+
+    #time{
+        display: flex;
+    }
+
+    #time div{
+        background: none;
+        margin-right: 1.5rem;
+        font-size: 1rem;
+    }
+
+    #time label{
+        background: none;
+    }
+
+    #label-time, #label-name, #label-password{
+        float: left;
+        background: none;
+        border-radius: 5px;
+        padding: 5px 5px;
+        margin-right: 0.5rem;
+    }
+
+    #container-cancel-create{
+        background: 0;
+        margin-top: 7rem;
+    }
+    
+    #container-cancel-create .button{
+        padding: 15px 25px;
+        margin-left: 1rem;
+        margin-right: 1rem;
+        font-size: 1.4rem;
+    }
+    
+    /*#endregion*/
+
+    .button{
+        border: 1px solid rgba(43, 43, 43, 0.336);
+        border-radius: 10px;
+        background-color: rgb(100, 100, 100);
+    }
 }
+/*#endregion*/

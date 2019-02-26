@@ -1,11 +1,8 @@
 body{
-    background: #bbb;
-    font-family: Arial, Helvetica, sans-serif;
-}
-
-*, html {
     margin:0;
     padding:0;  
+    background: #bbb;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 /* Board */
@@ -19,6 +16,8 @@ body{
     position: relative;
     width: 40vw;
     height: 40vw;
+    border-radius: 15px;
+    overflow: hidden;
 }
 
 #board td{
@@ -72,7 +71,9 @@ body{
     width: 17.5%;
     height: 55vh;
     background: white;
-    border: 1px solid black;
+    border: 1px solid rgba(0, 0, 0, 0.705);
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
     overflow-x: hidden;
     overflow-y: auto;
 }
