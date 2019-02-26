@@ -144,8 +144,8 @@ body{
     }
 
     #board td{
-        height: 4rem;
-        width: 4rem;
+        height: 10vh;
+        width: 10vh;
         box-sizing: border-box;
         transition: all 0.1s ease;
     }
