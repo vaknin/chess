@@ -36,6 +36,8 @@
     #rooms li{
         border-bottom: 1px solid black;
         padding: 1.75rem;
+        font-size: 2rem;
+        overflow: hidden;
     }
 
     #btn_createRoom{

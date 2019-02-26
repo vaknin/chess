@@ -3,30 +3,13 @@ const express = require('express');
 const app = express();
 const http = require('http').Server(app);
 const server = require('socket.io')(http);
-const uuid = require('uuid/v4');
 const fs = require('fs');
-//#endregion
-
-//#region Classes
-
-//The 'Match' class contains information about a specific match: it's ID, the players, and the board object
-class Match{
-    constructor(id, player1, player2){
-        this.id = id;
-        this.player1 = player1;
-        this.player2 = player2;
-        this.board = getInitialBoard();
-        this.board.whiteKing = 'E1';
-        this.board.blackKing = 'E8';
-    }
-}   
-
 //#endregion
 
 //#region Global server variables
 
 const defaultBoard = getInitialBoard();
-const queue = [];
+const rooms = [];
 const matches = [];
 
 //#endregion
@@ -35,42 +18,80 @@ const matches = [];
 
 server.on('connection', client => {
 
+    //Once a client connects, send him the current list of rooms
+    server.to(client.id).emit('updateRooms', rooms);
+
     //#region Lobby
 
-    //The client has created a room, the room object contains the room's name, password and time per player
+    //Create a room
     client.on('createRoom', room => {
-        
+        room.matchID = client.id;
+        rooms.push(room);
+        server.emit('updateRooms', rooms);
     });
 
-    //The client is searching for an opponent 
-    client.on('searching', () => searchForOpponent(client));
-
-    //If the client disconnects while waiting in queue, remove him from the queue
-    client.on('disconnect', () => {
-        if (queue.indexOf(client) != -1){
-            queue.splice(queue.indexOf(client), 1);
+    //Delete a room
+    client.on('deleteRoom', () => {
+        for(let i = 0; i < rooms.length; i++){
+            if (rooms[i].matchID == client.id){
+                rooms.splice(rooms.indexOf(client), 1);
+                server.emit('updateRooms', rooms);
+                return;
+            }
         }
+    });
+
+    //If the client disconnects after creating a room, delete the room
+    client.on('disconnect', () => {
+        for (let i = 0; i < rooms.length; i++){
+            if (rooms[i].matchID == client.id){
+                rooms.splice(rooms.indexOf(client), 1);
+                server.emit('updateRooms', rooms);
+                break;
+            }
+        }
+
+        //Check if the client is in a game, if he is, end the game
     });
 
     //#endregion
 
     //#region Game Creation
 
+    client.on('joinRoom', matchID => {
+    
+        //If the client already had a room, delete that
+        for (let i = 0; i < rooms.length; i++){
+            if (rooms[i].matchID == client.id){
+                rooms.splice(rooms.indexOf(client), 1);
+                server.emit('updateRooms', rooms);
+            }
+        }
+
+        //Add the client to the socket.io room
+        client.join(matchID);
+
+        //Create the webpage
+        let matchURL = matchID.substring(0, 6);
+        addPage(matchURL);
+    
+        //Send the clients to the game
+        server.to(matchID).emit('joinMatch', matchURL);
+    });
+
     //The client is inside the match
-    client.on('join', matchID => {
+    client.on('inMatch', matchID => {
 
         //Add each one of the players into the 'socket.server' room
         client.join(matchID);
         client.matchID = matchID;
-        client.color = 'white';
-
-        //Choose sides
-        if (server.sockets.adapter.rooms[`${matchID}`].length == 2){
-
-            //One of the clients is selected to play black, the other one is white
-            server.to(matchID).emit('assignSides', client.id, defaultBoard);
-            client.color = 'black';
+        let black = true;
+        
+        if (matches.indexOf(matchID) == -1){
+            matches.push(matchID);
+            black = false;
         }
+        server.to(client.id).emit('assignSides', black, defaultBoard);
     });
 
     //#endregion
@@ -100,43 +121,9 @@ function getInitialBoard(){
     return JSON.parse(fs.readFileSync(__dirname+'/board.json', 'utf8'));
 }
 
-//Returns a match from the 'matches' array, by giving it the match's ID
-function getMatch(matchID){
-    for (let i = 0; i < matches.length; i++){
-        if (matches[i].id == matchID){
-            return matches[i];
-        }
-    }
-}
-
 //#endregion
 
 //#region Http & Handle new games
-
-function searchForOpponent(client){
-    
-    queue.push(client);
-
-    //If there are at least two people in queue, remove them from the queue and put them in a room
-    if (queue.length >= 2){
-
-        //Create a room for the two
-        let matchID = uuid().substring(0, 6);
-        for(let i = 0; i < 2; i++){
-            queue[i].join(matchID);
-        }
-
-        //Create a new match
-        matches.push(new Match(matchID, queue[0].id, queue[1].id));
-
-        //Remove them from the queue
-        queue.splice(0, 2);
-
-        //Send the clients to the game
-        addPage(matchID);
-        server.to(matchID).emit('roomCreated', matches[matches.length - 1].id);
-    }
-}
 
 function addPage(matchID){
     app.get(`/${matchID}`, (req, res) => {

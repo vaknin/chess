@@ -43,6 +43,8 @@ let black, turn, selectedPiece, legalMoves;
 
 //Main method
 initializeBoard();
+//scrollChatToBottom();
+$('#messages-container').scrollTop($(document).height() * 1000);
 
 //#endregion
 
@@ -347,15 +349,19 @@ function getBoardClone(){
     return newBoard;
 }
 
+function scrollChatToBottom(){
+    $('#messages').scrollTop($(document).height() * 1000);
+}
+
 //#endregion
 
 //#region Server communication
 
 //Assign sides and receive the board
-client.on('assignSides', (blackID, defaultBoard) => {
+client.on('assignSides', (blackSide, defaultBoard) => {
 
     // Client is white
-    if (client.id != blackID){
+    if (!blackSide){
         black = false;
         turn = true;
         document.title = 'Your turn!';
@@ -385,18 +391,19 @@ client.on('gameOver', winner => {
 
 client.on('message', msg => {
 
-    $('#messages').append($('<li>').text(`Opponent: ${msg}`));
-    $('#messages').scrollTop($(document).height() * 1000);
+    let opponentColor = black ? 'white' : 'black';
+    $('#messages').append($('<li>').text(`${opponentColor}: ${msg}`));
+    scrollChatToBottom();
 });
 
 //Connects the client to the server via socket.io
 function joinRoom(){
 
     document.title = `${document.location.href.substring(document.location.href.length - 6, document.location.href.length)}`;
-    let matchID = document.title.substring(document.title.indexOf('#') + 1, document.title.length);
+    let matchURL = document.title.substring(document.title.indexOf('#') + 1, document.title.length);
 
     //Join the socket.io room
-    client.emit('join', matchID);
+    client.emit('inMatch', matchURL, client.id);
 }
 
 //#endregion
@@ -1194,7 +1201,7 @@ function legalCheckMove(kingSquare, move){
 
 //#endregion
 
-//#region Unit selection and Chat system
+//#region Unit movement and Chat system
 
 //After creating the board, call this function to add all the onClick listeners to them
 function onClickPress(){
@@ -1308,9 +1315,10 @@ function onClickPress(){
             //Message isn't empty
             if (msg.replace(' ', '') != ''){
                 client.emit('message', msg);
-                $('#messages').append($('<li>').text(`You: ${msg}`));
+                let color = black ? 'black' : 'white';
+                $('#messages').append($('<li>').text(`${color}: ${msg}`));
                 $('#input').val('');
-                $('#messages').scrollTop($(document).height() * 1000);
+                scrollChatToBottom();
             }
         }
     });
@@ -1638,7 +1646,7 @@ function implementMove(move){
             //Last iteration and didn't break, checkmate
             if (i == 63){
                 $('#messages').append($('<li>').text(`Checkmate!`));
-                $('#messages').scrollTop($(document).height() * 1000);
+                scrollChatToBottom();
             }
         }
     }
@@ -1651,6 +1659,8 @@ function implementMove(move){
 
     //Update server
     if (turn){
+        console.log(move);
+        
         client.emit('move', move);
     }
 
