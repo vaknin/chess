@@ -71,9 +71,7 @@ async function initializeBoard(){
 
     //Mobile
     if (window.innerWidth < 781){
-        console.log('lel');
-        
-        $('td').css('height', `${window.innerHeight / 8.2}px`);
+        $('td').css('height', `${window.client / 9}px`);
     }
 }
 

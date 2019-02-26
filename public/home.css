@@ -54,7 +54,7 @@
     /*#region Create a room*/
     #create-room-container{
         position: fixed;
-        display: none;
+        display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
@@ -75,13 +75,36 @@
     }
 
     #name, #time, #password{
+        display: flex;
+        position: absolute;
         width: 85%;
         background: none;
         margin-bottom: 2rem;
+        left: 10%;
+    }
+
+    #name{
+        top: 7%;
     }
 
     #time{
         display: flex;
+        top:20%;
+    }
+
+    #password{
+        bottom: 0%;
+        top:35%;
+    }
+
+    #input_roomName, #input_roomPassword{
+        height: 1.2rem;
+    }
+
+    #cbox_hasPassword{
+        margin-top: 0.7rem;
+        margin-right: 1rem;
+        margin-left: -0.5rem;
     }
 
     #time div{
@@ -95,16 +118,15 @@
     }
 
     #label-time, #label-name, #label-password{
-        float: left;
         background: none;
         border-radius: 5px;
         padding: 5px 5px;
-        margin-right: 0.5rem;
+        margin-right: 1rem;
     }
 
     #container-cancel-create{
         background: 0;
-        margin-top: 7rem;
+        margin-top: 19rem;
     }
     
     #container-cancel-create .button{
