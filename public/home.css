@@ -56,18 +56,16 @@
         position: fixed;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
         background: #333;
-        width: 80%;
-        height: 70vh;
+        width: 90%;
+        height: 60vh;
         top: 10%;
         border-radius: 15px;
-        left: 9%;
+        left: 4%;
         z-index: 1;
-        text-align: center;
         background: rgba(71, 71, 71);
         font-size: 1.2rem;
+        overflow: hidden;
     }
 
     input{
@@ -75,26 +73,28 @@
     }
 
     #name, #time, #password{
-        display: flex;
         position: absolute;
-        width: 85%;
         background: none;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
         left: 10%;
     }
 
     #name{
-        top: 7%;
+        top: 10%;
+    }
+
+    #name input, #password input{
+        width: 30%;
     }
 
     #time{
         display: flex;
-        top:20%;
+        top:30%;
     }
 
     #password{
-        bottom: 0%;
-        top:35%;
+        display: flex;
+        top:50%;
     }
 
     #input_roomName, #input_roomPassword{
@@ -103,7 +103,7 @@
 
     #cbox_hasPassword{
         margin-top: 0.7rem;
-        margin-right: 1rem;
+        margin-right: -1rem;
         margin-left: -0.5rem;
     }
 
