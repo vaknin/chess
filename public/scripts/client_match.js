@@ -68,11 +68,6 @@ async function initializeBoard(){
     if (black){
         flipBoard();
     }
-
-    //Mobile
-    if (window.innerWidth < 781){
-        $('td').css('height', `${window.client / 9}px`);
-    }
 }
 
 //Builds the board's files and ranks
