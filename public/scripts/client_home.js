@@ -9,18 +9,6 @@ let roomCreated = false;
 $('#btn_createRoom').on('click', onCreateRoom);
 $('#btn_cancel').on('click', cancelRoomCreation);
 $('#btn_create').on('click', createRoom);
-$('#cbox_hasPassword').on('change', e => {
-    let on = e.target.checked;
-    if (on){
-        $('#input_roomPassword').prop('disabled', false);
-    }
-
-    else{
-        $('#input_roomPassword').val('');
-        $('#input_roomPassword').prop('disabled', true);
-    }
-    createRoom();
-});
 $(document).on('keypress', e => {
     if (e.which == 13){
         $('#btn_create').click();
@@ -90,12 +78,19 @@ client.on('updateRooms', rooms => {
     $('#rooms').empty();
     for(let i = 0; i < rooms.length; i++){
         $('#rooms').append(`<li value='${rooms[i].matchID}'>Room: ${rooms[i].name}</li>`);
+        console.log('matchid: ' + rooms[i].matchID);
+        console.log('clientid: ' + client.id);
+        
     }
 
     //Room on click
     $('li').on('click', e => {
         let matchID = e.target.getAttribute('value');
-        client.emit('joinRoom', matchID);
+        
+        //If the user enters a room he hasn't created himself
+        if (matchID != client.id){
+            client.emit('joinRoom', matchID);
+        }
     });
 });
 
