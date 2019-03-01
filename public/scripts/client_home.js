@@ -1,11 +1,10 @@
 //#region Variables
 const client = io();
-const timeRadios = [$('#radio_unlimited'), $('#radio_3min'), $('#radio_5min'), $('#radio_10min')];
 let roomCreated = false;
 
 //#endregion
 
-//#region On clicks
+//#region Events handler
 
 $('#btn_createRoom').on('click', onCreateRoom);
 $('#btn_cancel').on('click', cancelRoomCreation);
@@ -22,6 +21,11 @@ $('#cbox_hasPassword').on('change', e => {
     }
     createRoom();
 });
+$(document).on('keypress', e => {
+    if (e.which == 13){
+        $('#btn_create').click();
+    }
+});
 
 //#endregion
 
@@ -32,11 +36,15 @@ function onCreateRoom(){
 
     //Create a room
     if (roomCreated == false){
+
         //Disable the create room button
         $('#btn_createRoom').prop('disabled', 'disabled');
 
         //Display the div
         $('#create-room-container').css('display', 'flex');
+
+        //Focus on the name input
+        $('#input_roomName').focus();
     }
 
     //Delete the created room
@@ -59,22 +67,10 @@ function cancelRoomCreation(){
 //Finalize the room creation
 function createRoom(){
     let roomName = $('#input_roomName').val();
-    let password = $('#input_roomPassword').val();
-    if (password.length == 0){
-        password = undefined;
-    }
-    let time;
-
-    for (let i = 0; i < 4; i++){
-        if(timeRadios[i][0].checked){
-            time = timeRadios[i][0].value;
-        }
-    }
+    $('#input_roomName').val('');
 
     let room = {
-        name: roomName,
-        password: password,
-        time: time
+        name: roomName == '' ? 'unnamed' : roomName
     };
 
     roomCreated = true;
@@ -93,13 +89,11 @@ client.on('updateRooms', rooms => {
 
     $('#rooms').empty();
     for(let i = 0; i < rooms.length; i++){
-        let time = rooms[i].time == 'unlimited' ? 'unlimited time' : `${rooms[i].time}min`;
-        $('#rooms').append(`<li value='${rooms[i].matchID}'>${rooms[i].name} - ${time}</li>`);
+        $('#rooms').append(`<li value='${rooms[i].matchID}'>Room: ${rooms[i].name}</li>`);
     }
 
     //Room on click
     $('li').on('click', e => {
-        //Check for password! TODO
         let matchID = e.target.getAttribute('value');
         client.emit('joinRoom', matchID);
     });
