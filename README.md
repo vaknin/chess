@@ -1,12 +1,8 @@
 ## Chess
 
-Made using socket.io & express
+![gameplay](https://i.imgur.com/5DeoKtF.gif)
 
-Todo:
--Users & Rooms
--visual aid?
--chat system
--landing page
+Made using socket.io & express
 
 The general client-server workflow:
 
